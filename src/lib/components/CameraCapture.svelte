@@ -111,11 +111,11 @@
   </div>
 
   <div class="error-message" role="alert" aria-live="assertive" aria-atomic="true" class:hidden={!errorMessage}>
-    {errorMessage || '\u00A0'}
+    {errorMessage || t.camera.errorPlaceholder}
   </div>
 
   <div class="status-message" role="status" aria-live="polite" aria-atomic="true" class:hidden={!statusMessage}>
-    {statusMessage || '\u00A0'}
+    {statusMessage || t.camera.statusPlaceholder}
   </div>
 
   <div class="controls">
