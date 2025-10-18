@@ -1,5 +1,10 @@
 export type CameraPermissionStatus = 'granted' | 'denied' | 'unknown';
 
+export interface CameraDevice {
+  deviceId: string;
+  label: string;
+}
+
 /**
  * Check camera permission status
  */
@@ -18,9 +23,33 @@ export async function checkCameraPermission(): Promise<CameraPermissionStatus> {
 }
 
 /**
+ * Get list of available video input devices (cameras)
+ */
+export async function enumerateCameras(): Promise<CameraDevice[]> {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+    return [];
+  }
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices
+      .filter(device => device.kind === 'videoinput')
+      .map((device, index) => ({
+        deviceId: device.deviceId,
+        label: device.label || `Camera ${index + 1}`,
+      }));
+
+    return videoDevices;
+  } catch (error) {
+    console.error('Error enumerating cameras:', error);
+    return [];
+  }
+}
+
+/**
  * Request camera access and return the video stream
  */
-export async function getCameraStream(facingMode: 'user' | 'environment' = 'user'): Promise<MediaStream> {
+export async function getCameraStream(deviceId?: string, facingMode: 'user' | 'environment' = 'user'): Promise<MediaStream> {
   // Check if the browser supports mediaDevices
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     throw new Error(
@@ -29,13 +58,21 @@ export async function getCameraStream(facingMode: 'user' | 'environment' = 'user
   }
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: facingMode, // 'user' = front camera, 'environment' = back camera
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
-      },
-    });
+    const constraints: MediaStreamConstraints = {
+      video: deviceId
+        ? {
+            deviceId: { exact: deviceId },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          }
+        : {
+            facingMode: facingMode, // 'user' = front camera, 'environment' = back camera
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
     return stream;
   } catch (error) {
     throw new Error(

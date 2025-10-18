@@ -21,6 +21,7 @@ export interface Translations {
     errorNoPermission: string;
     errorNotSupported: string;
     errorGeneric: string;
+    errorVideoSource: string;
     switchCamera: string;
     frontCamera: string;
     backCamera: string;
@@ -65,6 +66,7 @@ export const translations: Record<Language, Translations> = {
       errorNoPermission: 'Camera permission denied. Please allow camera access in your browser settings.',
       errorNotSupported: 'Camera access is not supported in this browser. Please use HTTPS or a modern browser.',
       errorGeneric: 'An error occurred while accessing the camera. Please try again.',
+      errorVideoSource: 'Could not start video source. The camera may be in use by another application.',
       switchCamera: 'Switch Camera',
       frontCamera: 'Front Camera',
       backCamera: 'Back Camera',
@@ -107,6 +109,7 @@ export const translations: Record<Language, Translations> = {
       errorNoPermission: 'Permiso de cámara denegado. Por favor permite el acceso a la cámara en la configuración de tu navegador.',
       errorNotSupported: 'El acceso a la cámara no está soportado en este navegador. Por favor usa HTTPS o un navegador moderno.',
       errorGeneric: 'Ocurrió un error al acceder a la cámara. Por favor intenta de nuevo.',
+      errorVideoSource: 'No se pudo iniciar la fuente de video. La cámara puede estar en uso por otra aplicación.',
       switchCamera: 'Cambiar Cámara',
       frontCamera: 'Cámara Frontal',
       backCamera: 'Cámara Trasera',
@@ -149,6 +152,7 @@ export const translations: Record<Language, Translations> = {
       errorNoPermission: 'Kamera-Berechtigung verweigert. Bitte erlauben Sie den Kamerazugriff in Ihren Browsereinstellungen.',
       errorNotSupported: 'Kamerazugriff wird in diesem Browser nicht unterstützt. Bitte verwenden Sie HTTPS oder einen modernen Browser.',
       errorGeneric: 'Beim Zugriff auf die Kamera ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.',
+      errorVideoSource: 'Videoquelle konnte nicht gestartet werden. Die Kamera wird möglicherweise von einer anderen Anwendung verwendet.',
       switchCamera: 'Kamera Wechseln',
       frontCamera: 'Frontkamera',
       backCamera: 'Rückkamera',
@@ -191,6 +195,7 @@ export const translations: Record<Language, Translations> = {
       errorNoPermission: 'Permission de caméra refusée. Veuillez autoriser l\'accès à la caméra dans les paramètres de votre navigateur.',
       errorNotSupported: 'L\'accès à la caméra n\'est pas pris en charge dans ce navigateur. Veuillez utiliser HTTPS ou un navigateur moderne.',
       errorGeneric: 'Une erreur s\'est produite lors de l\'accès à la caméra. Veuillez réessayer.',
+      errorVideoSource: 'Impossible de démarrer la source vidéo. La caméra peut être utilisée par une autre application.',
       switchCamera: 'Changer de Caméra',
       frontCamera: 'Caméra Avant',
       backCamera: 'Caméra Arrière',
@@ -233,6 +238,7 @@ export const translations: Record<Language, Translations> = {
       errorNoPermission: 'Permesso fotocamera negato. Consenti l\'accesso alla fotocamera nelle impostazioni del browser.',
       errorNotSupported: 'L\'accesso alla fotocamera non è supportato in questo browser. Utilizza HTTPS o un browser moderno.',
       errorGeneric: 'Si è verificato un errore durante l\'accesso alla fotocamera. Riprova.',
+      errorVideoSource: 'Impossibile avviare la sorgente video. La fotocamera potrebbe essere in uso da un\'altra applicazione.',
       switchCamera: 'Cambia Fotocamera',
       frontCamera: 'Fotocamera Anteriore',
       backCamera: 'Fotocamera Posteriore',

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { getCameraStream, captureFrame, stopStream } from '../camera';
+  import { getCameraStream, captureFrame, stopStream, enumerateCameras, type CameraDevice } from '../camera';
   import { describeImage } from '../openai';
   import { getApiKey } from '../storage.svelte';
   import { getTranslations } from '../i18n/store.svelte';
@@ -21,7 +21,9 @@
   let previousDefaultPrompt = $state('');
   let isProcessing = $state(false);
   let isCameraReady = $state(false);
-  let facingMode = $state<'user' | 'environment'>('user');
+  let availableCameras = $state<CameraDevice[]>([]);
+  let selectedCameraIndex = $state(0);
+  let cameraTabRefs = $state<(HTMLButtonElement | undefined)[]>([]);
 
   // Update prompt when language changes, but only if user hasn't customized it
   $effect(() => {
@@ -35,14 +37,14 @@
     previousDefaultPrompt = currentDefault;
   });
 
-  async function startCamera() {
+  async function startCamera(deviceId?: string) {
     try {
       // Stop existing stream if any
       if (stream) {
         stopStream(stream);
       }
 
-      stream = await getCameraStream(facingMode);
+      stream = await getCameraStream(deviceId);
       if (videoElement) {
         videoElement.srcObject = stream;
         await videoElement.play();
@@ -57,6 +59,8 @@
         errorMessage = t.camera.errorNotSupported;
       } else if (errMsg.includes('Permission denied') || errMsg.includes('NotAllowedError')) {
         errorMessage = t.camera.errorNoPermission;
+      } else if (errMsg.toLowerCase().includes('could not start video source') || errMsg.includes('NotReadableError')) {
+        errorMessage = t.camera.errorVideoSource;
       } else {
         errorMessage = errMsg;
       }
@@ -64,13 +68,47 @@
     }
   }
 
-  async function switchCameraFacing() {
-    facingMode = facingMode === 'user' ? 'environment' : 'user';
-    await startCamera();
+  async function switchCamera(index: number) {
+    if (index < 0 || index >= availableCameras.length) return;
+
+    selectedCameraIndex = index;
+    const camera = availableCameras[index];
+    await startCamera(camera.deviceId);
+
+    // Restore focus to the selected tab
+    if (cameraTabRefs[index]) {
+      cameraTabRefs[index]?.focus();
+    }
+  }
+
+  function handleCameraTabKeydown(event: KeyboardEvent, index: number) {
+    if (event.key === 'ArrowLeft' && index > 0) {
+      event.preventDefault();
+      switchCamera(index - 1);
+    } else if (event.key === 'ArrowRight' && index < availableCameras.length - 1) {
+      event.preventDefault();
+      switchCamera(index + 1);
+    }
   }
 
   onMount(async () => {
-    await startCamera();
+    // First, get a temporary stream to trigger permission prompt and populate device labels
+    try {
+      const tempStream = await getCameraStream();
+      stopStream(tempStream);
+    } catch (error) {
+      // Permission denied or no camera, will be handled by startCamera
+    }
+
+    // Enumerate cameras (labels will be available after permission granted)
+    availableCameras = await enumerateCameras();
+
+    // Start with the first camera
+    if (availableCameras.length > 0) {
+      await startCamera(availableCameras[0].deviceId);
+    } else {
+      await startCamera();
+    }
 
     // Focus the prompt textarea for better accessibility
     if (promptTextarea) {
@@ -125,21 +163,27 @@
     <video bind:this={videoElement} autoplay playsinline muted aria-label="Camera preview">
       <track kind="captions" />
     </video>
-    <button
-      class="switch-camera-button"
-      onclick={switchCameraFacing}
-      disabled={!isCameraReady || isProcessing}
-      aria-label="{t.camera.switchCamera}: {facingMode === 'user' ? t.camera.frontCamera : t.camera.backCamera}"
-      title={t.camera.switchCamera}
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M17 3h4v4"/>
-        <path d="M21 3l-7 7"/>
-        <path d="M7 21H3v-4"/>
-        <path d="M3 21l7-7"/>
-        <circle cx="12" cy="12" r="7"/>
-      </svg>
-    </button>
+    {#if availableCameras.length > 1}
+      <div class="camera-tabs" role="tablist" aria-label="Camera selection">
+        {#each availableCameras as camera, index}
+          <button
+            bind:this={cameraTabRefs[index]}
+            role="tab"
+            aria-selected={index === selectedCameraIndex}
+            aria-disabled={isProcessing}
+            aria-controls="camera-preview"
+            tabindex={index === selectedCameraIndex ? 0 : -1}
+            onclick={() => switchCamera(index)}
+            onkeydown={(e) => handleCameraTabKeydown(e, index)}
+            class="camera-tab"
+            class:active={index === selectedCameraIndex}
+            title={camera.label}
+          >
+            {camera.label}
+          </button>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <!-- Error messages -->
@@ -203,40 +247,54 @@
     display: block;
   }
 
-  .switch-camera-button {
+  .camera-tabs {
     position: absolute;
     top: 1rem;
-    right: 1rem;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.9);
-    border: 2px solid rgba(0, 0, 0, 0.1);
-    cursor: pointer;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    align-items: center;
-    justify-content: center;
+    gap: 0.5rem;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 0.5rem;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+  }
+
+  .camera-tab {
+    padding: 0.5rem 1rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
     transition: all 0.2s;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-width: 200px;
   }
 
-  .switch-camera-button:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 1);
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  .camera-tab:hover:not([aria-disabled="true"]) {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
   }
 
-  .switch-camera-button:active:not(:disabled) {
-    transform: scale(0.95);
+  .camera-tab:focus {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
   }
 
-  .switch-camera-button:disabled {
+  .camera-tab.active {
+    background: rgba(255, 255, 255, 0.9);
+    color: #2d3748;
+    border-color: rgba(255, 255, 255, 0.9);
+  }
+
+  .camera-tab[aria-disabled="true"] {
     opacity: 0.5;
     cursor: not-allowed;
-  }
-
-  .switch-camera-button svg {
-    color: #2d3748;
   }
 
   .error-message {
@@ -329,16 +387,19 @@
       font-size: 1rem;
     }
 
-    .switch-camera-button {
+    .camera-tabs {
       top: 0.75rem;
-      right: 0.75rem;
-      width: 44px;
-      height: 44px;
+      padding: 0.375rem;
+      gap: 0.375rem;
+      max-width: calc(100% - 1.5rem);
+      flex-wrap: wrap;
+      justify-content: center;
     }
 
-    .switch-camera-button svg {
-      width: 20px;
-      height: 20px;
+    .camera-tab {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.8rem;
+      max-width: 150px;
     }
   }
 </style>
