@@ -40,6 +40,8 @@ export interface Translations {
     cameraAccessGranted: string;
     cameraAccessDenied: string;
     cameraAccessUnknown: string;
+    cameraActive: string;
+    cameraInactive: string;
     copyright: string;
   };
 }
@@ -85,6 +87,8 @@ export const translations: Record<Language, Translations> = {
       cameraAccessGranted: 'Camera: Granted',
       cameraAccessDenied: 'Camera: Denied',
       cameraAccessUnknown: 'Camera: Unknown',
+      cameraActive: 'Camera:',
+      cameraInactive: 'Camera: Inactive',
       copyright: '© 2025 Oriol Gómez',
     },
   },
@@ -128,6 +132,8 @@ export const translations: Record<Language, Translations> = {
       cameraAccessGranted: 'Cámara: Permitida',
       cameraAccessDenied: 'Cámara: Denegada',
       cameraAccessUnknown: 'Cámara: Desconocido',
+      cameraActive: 'Cámara:',
+      cameraInactive: 'Cámara: Inactiva',
       copyright: '© 2025 Oriol Gómez',
     },
   },
@@ -171,6 +177,8 @@ export const translations: Record<Language, Translations> = {
       cameraAccessGranted: 'Kamera: Erlaubt',
       cameraAccessDenied: 'Kamera: Verweigert',
       cameraAccessUnknown: 'Kamera: Unbekannt',
+      cameraActive: 'Kamera:',
+      cameraInactive: 'Kamera: Inaktiv',
       copyright: '© 2025 Oriol Gómez',
     },
   },
@@ -214,6 +222,8 @@ export const translations: Record<Language, Translations> = {
       cameraAccessGranted: 'Caméra : Accordée',
       cameraAccessDenied: 'Caméra : Refusée',
       cameraAccessUnknown: 'Caméra : Inconnu',
+      cameraActive: 'Caméra :',
+      cameraInactive: 'Caméra : Inactive',
       copyright: '© 2025 Oriol Gómez',
     },
   },
@@ -257,6 +267,8 @@ export const translations: Record<Language, Translations> = {
       cameraAccessGranted: 'Fotocamera: Consentita',
       cameraAccessDenied: 'Fotocamera: Negata',
       cameraAccessUnknown: 'Fotocamera: Sconosciuto',
+      cameraActive: 'Fotocamera:',
+      cameraInactive: 'Fotocamera: Inattiva',
       copyright: '© 2025 Oriol Gómez',
     },
   },

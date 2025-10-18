@@ -10,14 +10,36 @@ export interface CameraDevice {
  */
 export async function checkCameraPermission(): Promise<CameraPermissionStatus> {
   try {
-    if (!navigator.permissions) {
-      return 'unknown';
+    // First try the permissions API
+    if (navigator.permissions) {
+      try {
+        const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        if (result.state === 'granted') return 'granted';
+        if (result.state === 'denied') return 'denied';
+      } catch (error) {
+        // Permissions API query failed, try alternative method
+      }
     }
 
-    const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
-    return result.state === 'granted' ? 'granted' : result.state === 'denied' ? 'denied' : 'unknown';
+    // Alternative: Check if we can enumerate devices with labels
+    // If device labels are available, permission was granted
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+      // If we have video devices with labels, permission is granted
+      if (videoDevices.length > 0 && videoDevices[0].label) {
+        return 'granted';
+      }
+
+      // If we have video devices but no labels, permission not granted yet
+      if (videoDevices.length > 0 && !videoDevices[0].label) {
+        return 'unknown';
+      }
+    }
+
+    return 'unknown';
   } catch (error) {
-    // Permissions API might not be available
     return 'unknown';
   }
 }

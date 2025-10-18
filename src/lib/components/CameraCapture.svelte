@@ -4,6 +4,7 @@
   import { describeImage } from '../openai';
   import { getApiKey } from '../storage.svelte';
   import { getTranslations } from '../i18n/store.svelte';
+  import { setCurrentCamera } from '../cameraStore.svelte';
 
   interface Props {
     onDescriptionComplete: (description: string) => void;
@@ -50,6 +51,12 @@
         await videoElement.play();
         isCameraReady = true;
         errorMessage = '';
+
+        // Update camera store with current camera
+        const currentCamera = availableCameras.find(cam => cam.deviceId === deviceId) || availableCameras[selectedCameraIndex];
+        if (currentCamera) {
+          setCurrentCamera(currentCamera);
+        }
       }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : t.camera.errorGeneric;
@@ -65,6 +72,7 @@
         errorMessage = errMsg;
       }
       isCameraReady = false;
+      setCurrentCamera(null); // Clear camera on error
     }
   }
 
@@ -120,6 +128,7 @@
     if (stream) {
       stopStream(stream);
     }
+    setCurrentCamera(null); // Clear camera state on unmount
   });
 
   async function handleCapture() {

@@ -1,41 +1,25 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { getTranslations, getCurrentLanguage, getWebsiteUrl } from '../i18n/store.svelte';
   import { getApiKey } from '../storage.svelte';
-  import { checkCameraPermission, type CameraPermissionStatus } from '../camera';
+  import { getCameraState } from '../cameraStore.svelte';
 
-  let cameraStatus = $state<CameraPermissionStatus>('unknown');
   let t = $derived(getTranslations());
-
-  onMount(async () => {
-    cameraStatus = await checkCameraPermission();
-
-    // Listen for permission changes
-    if (navigator.permissions) {
-      try {
-        const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
-        result.addEventListener('change', async () => {
-          cameraStatus = await checkCameraPermission();
-        });
-      } catch (error) {
-        // Permissions API might not be fully supported
-      }
-    }
-  });
-
+  let cameraState = $derived(getCameraState());
   let hasApiKey = $derived(!!getApiKey());
   let websiteUrl = $derived(getWebsiteUrl(getCurrentLanguage()));
 
   let cameraStatusText = $derived(
-    cameraStatus === 'granted'
-      ? t.footer.cameraAccessGranted
-      : cameraStatus === 'denied'
-        ? t.footer.cameraAccessDenied
-        : t.footer.cameraAccessUnknown
+    cameraState.isActive && cameraState.currentCamera
+      ? `${t.footer.cameraActive} ${cameraState.currentCamera.label}`
+      : t.footer.cameraInactive
   );
 
   let apiStatusText = $derived(
     hasApiKey ? t.footer.apiKeyFound : t.footer.apiKeyNotFound
+  );
+
+  let cameraStatusClass = $derived(
+    cameraState.isActive ? 'status-ok' : 'status-unknown'
   );
 </script>
 
@@ -45,12 +29,7 @@
       <span class="status-item" class:status-ok={hasApiKey} class:status-error={!hasApiKey}>
         {apiStatusText}
       </span>
-      <span
-        class="status-item"
-        class:status-ok={cameraStatus === 'granted'}
-        class:status-error={cameraStatus === 'denied'}
-        class:status-unknown={cameraStatus === 'unknown'}
-      >
+      <span class="status-item {cameraStatusClass}">
         {cameraStatusText}
       </span>
     </div>
