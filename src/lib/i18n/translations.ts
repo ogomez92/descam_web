@@ -16,6 +16,7 @@ export interface Translations {
   };
   camera: {
     captureButton: string;
+    uploadButton: string;
     capturingFrame: string;
     uploadingImage: string;
     errorNoPermission: string;
@@ -30,6 +31,7 @@ export interface Translations {
     label: string;
     placeholder: string;
     defaultPrompt: string;
+    resetButton: string;
   };
   history: {
     title: string;
@@ -63,6 +65,7 @@ export const translations: Record<Language, Translations> = {
     },
     camera: {
       captureButton: 'Capture Image',
+      uploadButton: 'Upload Image',
       capturingFrame: 'Capturing frame...',
       uploadingImage: 'Uploading image...',
       errorNoPermission: 'Camera permission denied. Please allow camera access in your browser settings.',
@@ -77,6 +80,7 @@ export const translations: Record<Language, Translations> = {
       label: 'Custom Prompt (optional)',
       placeholder: 'Describe this image in detail',
       defaultPrompt: 'Describe this image in detail, including objects, people shown, etc. Read any visible text. If someone\'s face is shown, try to say whether it is centered or if they are off screen.',
+      resetButton: 'Reset Prompt',
     },
     history: {
       title: 'History',
@@ -108,6 +112,7 @@ export const translations: Record<Language, Translations> = {
     },
     camera: {
       captureButton: 'Capturar Imagen',
+      uploadButton: 'Subir Imagen',
       capturingFrame: 'Capturando fotograma...',
       uploadingImage: 'Subiendo imagen...',
       errorNoPermission: 'Permiso de cámara denegado. Por favor permite el acceso a la cámara en la configuración de tu navegador.',
@@ -122,6 +127,7 @@ export const translations: Record<Language, Translations> = {
       label: 'Instrucción Personalizada (opcional)',
       placeholder: 'Describe esta imagen en detalle',
       defaultPrompt: 'Describe esta imagen en detalle, incluyendo objetos, personas mostradas, etc. Lee cualquier texto visible. Si se muestra el rostro de alguien, intenta decir si está centrado o si están fuera de pantalla.',
+      resetButton: 'Restablecer Instrucción',
     },
     history: {
       title: 'Historial',
@@ -153,6 +159,7 @@ export const translations: Record<Language, Translations> = {
     },
     camera: {
       captureButton: 'Bild Aufnehmen',
+      uploadButton: 'Bild Hochladen',
       capturingFrame: 'Frame wird aufgenommen...',
       uploadingImage: 'Bild wird hochgeladen...',
       errorNoPermission: 'Kamera-Berechtigung verweigert. Bitte erlauben Sie den Kamerazugriff in Ihren Browsereinstellungen.',
@@ -167,6 +174,7 @@ export const translations: Record<Language, Translations> = {
       label: 'Benutzerdefinierte Anweisung (optional)',
       placeholder: 'Beschreiben Sie dieses Bild im Detail',
       defaultPrompt: 'Beschreiben Sie dieses Bild im Detail, einschließlich Objekte, gezeigte Personen, usw. Lesen Sie jeden sichtbaren Text. Wenn das Gesicht einer Person gezeigt wird, versuchen Sie zu sagen, ob es zentriert ist oder ob sie außerhalb des Bildschirms sind.',
+      resetButton: 'Anweisung Zurücksetzen',
     },
     history: {
       title: 'Verlauf',
@@ -198,6 +206,7 @@ export const translations: Record<Language, Translations> = {
     },
     camera: {
       captureButton: 'Capturer l\'Image',
+      uploadButton: 'Télécharger une Image',
       capturingFrame: 'Capture de l\'image...',
       uploadingImage: 'Téléchargement de l\'image...',
       errorNoPermission: 'Permission de caméra refusée. Veuillez autoriser l\'accès à la caméra dans les paramètres de votre navigateur.',
@@ -212,6 +221,7 @@ export const translations: Record<Language, Translations> = {
       label: 'Instruction Personnalisée (optionnel)',
       placeholder: 'Décrivez cette image en détail',
       defaultPrompt: 'Décrivez cette image en détail, y compris les objets, les personnes montrées, etc. Lisez tout texte visible. Si le visage de quelqu\'un est montré, essayez de dire s\'il est centré ou s\'ils sont hors de l\'écran.',
+      resetButton: 'Réinitialiser l\'Instruction',
     },
     history: {
       title: 'Historique',
@@ -243,6 +253,7 @@ export const translations: Record<Language, Translations> = {
     },
     camera: {
       captureButton: 'Cattura Immagine',
+      uploadButton: 'Carica Immagine',
       capturingFrame: 'Catturando frame...',
       uploadingImage: 'Caricamento immagine...',
       errorNoPermission: 'Permesso fotocamera negato. Consenti l\'accesso alla fotocamera nelle impostazioni del browser.',
@@ -257,6 +268,7 @@ export const translations: Record<Language, Translations> = {
       label: 'Istruzione Personalizzata (opzionale)',
       placeholder: 'Descrivi questa immagine in dettaglio',
       defaultPrompt: 'Descrivi questa immagine in dettaglio, includendo oggetti, persone mostrate, ecc. Leggi qualsiasi testo visibile. Se è mostrato il volto di qualcuno, prova a dire se è centrato o se sono fuori dallo schermo.',
+      resetButton: 'Ripristina Istruzione',
     },
     history: {
       title: 'Cronologia',

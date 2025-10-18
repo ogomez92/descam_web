@@ -15,6 +15,7 @@
   let t = $derived(getTranslations());
   let videoElement = $state<HTMLVideoElement>();
   let promptTextarea = $state<HTMLTextAreaElement>();
+  let fileInput = $state<HTMLInputElement>();
   let stream = $state<MediaStream | null>(null);
   let statusMessage = $state('');
   let errorMessage = $state('');
@@ -165,6 +166,62 @@
       isProcessing = false;
     }
   }
+
+  function handleUploadClick() {
+    fileInput?.click();
+  }
+
+  async function handleFileUpload(event: Event) {
+    const apiKey = getApiKey();
+    if (!apiKey || isProcessing) return;
+
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    try {
+      isProcessing = true;
+      errorMessage = '';
+      statusMessage = t.camera.uploadingImage;
+
+      // Read the file as data URL
+      const imageDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Get the prompt (use custom or default)
+      const prompt = customPrompt.trim() || t.prompt.defaultPrompt;
+
+      // Send to OpenAI
+      const result = await describeImage(apiKey, imageDataUrl, prompt);
+
+      if (result.error) {
+        errorMessage = result.error.message;
+        statusMessage = '';
+      } else {
+        statusMessage = '';
+        onDescriptionComplete(result.description);
+      }
+    } catch (error) {
+      errorMessage = error instanceof Error ? error.message : t.camera.errorGeneric;
+      statusMessage = '';
+    } finally {
+      isProcessing = false;
+      // Clear the input so the same file can be selected again
+      input.value = '';
+    }
+  }
+
+  function handleResetPrompt() {
+    customPrompt = t.prompt.defaultPrompt;
+    // Focus the textarea after resetting
+    if (promptTextarea) {
+      promptTextarea.focus();
+    }
+  }
 </script>
 
 <div class="camera-capture">
@@ -211,7 +268,18 @@
 
   <div class="controls">
     <div class="form-group">
-      <label for="custom-prompt">{t.prompt.label}</label>
+      <div class="prompt-header">
+        <label for="custom-prompt">{t.prompt.label}</label>
+        <button
+          type="button"
+          class="reset-button"
+          onclick={handleResetPrompt}
+          disabled={isProcessing}
+          aria-label={t.prompt.resetButton}
+        >
+          {t.prompt.resetButton}
+        </button>
+      </div>
       <textarea
         id="custom-prompt"
         bind:this={promptTextarea}
@@ -222,14 +290,34 @@
       ></textarea>
     </div>
 
-    <button
-      class="capture-button"
-      onclick={handleCapture}
-      disabled={!isCameraReady || isProcessing}
-      aria-label={t.camera.captureButton}
-    >
-      {t.camera.captureButton}
-    </button>
+    <!-- Hidden file input for image upload -->
+    <input
+      type="file"
+      bind:this={fileInput}
+      onchange={handleFileUpload}
+      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/svg+xml,image/heic,image/heif"
+      style="display: none;"
+      aria-hidden="true"
+    />
+
+    <div class="button-group">
+      <button
+        class="capture-button"
+        onclick={handleCapture}
+        disabled={!isCameraReady || isProcessing}
+        aria-label={t.camera.captureButton}
+      >
+        {t.camera.captureButton}
+      </button>
+      <button
+        class="upload-button"
+        onclick={handleUploadClick}
+        disabled={isProcessing}
+        aria-label={t.camera.uploadButton}
+      >
+        {t.camera.uploadButton}
+      </button>
+    </div>
   </div>
 </div>
 
@@ -336,11 +424,38 @@
     margin-bottom: 1rem;
   }
 
-  label {
-    display: block;
+  .prompt-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 0.5rem;
+  }
+
+  label {
     font-weight: 600;
     color: #2d3748;
+    margin: 0;
+  }
+
+  .reset-button {
+    padding: 0.375rem 0.75rem;
+    background: #e2e8f0;
+    color: #2d3748;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .reset-button:hover:not(:disabled) {
+    background: #cbd5e0;
+  }
+
+  .reset-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   textarea {
@@ -365,17 +480,26 @@
     cursor: not-allowed;
   }
 
-  .capture-button {
-    width: 100%;
+  .button-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .capture-button,
+  .upload-button {
     padding: 1rem;
-    background: #667eea;
-    color: white;
     border: none;
     border-radius: 4px;
     font-size: 1.125rem;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
+  }
+
+  .capture-button {
+    background: #667eea;
+    color: white;
   }
 
   .capture-button:hover:not(:disabled) {
@@ -391,9 +515,38 @@
     cursor: not-allowed;
   }
 
+  .upload-button {
+    background: #48bb78;
+    color: white;
+  }
+
+  .upload-button:hover:not(:disabled) {
+    background: #38a169;
+  }
+
+  .upload-button:active:not(:disabled) {
+    background: #2f855a;
+  }
+
+  .upload-button:disabled {
+    background: #cbd5e0;
+    cursor: not-allowed;
+  }
+
   @media (max-width: 640px) {
-    .capture-button {
+    .capture-button,
+    .upload-button {
       font-size: 1rem;
+      padding: 0.875rem;
+    }
+
+    .button-group {
+      gap: 0.5rem;
+    }
+
+    .reset-button {
+      font-size: 0.8rem;
+      padding: 0.3rem 0.6rem;
     }
 
     .camera-tabs {
