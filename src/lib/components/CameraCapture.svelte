@@ -21,6 +21,7 @@
   let previousDefaultPrompt = $state('');
   let isProcessing = $state(false);
   let isCameraReady = $state(false);
+  let facingMode = $state<'user' | 'environment'>('user');
 
   // Update prompt when language changes, but only if user hasn't customized it
   $effect(() => {
@@ -34,13 +35,19 @@
     previousDefaultPrompt = currentDefault;
   });
 
-  onMount(async () => {
+  async function startCamera() {
     try {
-      stream = await getCameraStream();
+      // Stop existing stream if any
+      if (stream) {
+        stopStream(stream);
+      }
+
+      stream = await getCameraStream(facingMode);
       if (videoElement) {
         videoElement.srcObject = stream;
         await videoElement.play();
         isCameraReady = true;
+        errorMessage = '';
       }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : t.camera.errorGeneric;
@@ -53,7 +60,17 @@
       } else {
         errorMessage = errMsg;
       }
+      isCameraReady = false;
     }
+  }
+
+  async function switchCameraFacing() {
+    facingMode = facingMode === 'user' ? 'environment' : 'user';
+    await startCamera();
+  }
+
+  onMount(async () => {
+    await startCamera();
 
     // Focus the prompt textarea for better accessibility
     if (promptTextarea) {
@@ -108,6 +125,21 @@
     <video bind:this={videoElement} autoplay playsinline muted aria-label="Camera preview">
       <track kind="captions" />
     </video>
+    <button
+      class="switch-camera-button"
+      onclick={switchCameraFacing}
+      disabled={!isCameraReady || isProcessing}
+      aria-label="{t.camera.switchCamera}: {facingMode === 'user' ? t.camera.frontCamera : t.camera.backCamera}"
+      title={t.camera.switchCamera}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 3h4v4"/>
+        <path d="M21 3l-7 7"/>
+        <path d="M7 21H3v-4"/>
+        <path d="M3 21l7-7"/>
+        <circle cx="12" cy="12" r="7"/>
+      </svg>
+    </button>
   </div>
 
   <div class="error-message" role="alert" aria-live="assertive" aria-atomic="true" class:hidden={!errorMessage}>
@@ -163,6 +195,42 @@
     height: 100%;
     object-fit: cover;
     display: block;
+  }
+
+  .switch-camera-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .switch-camera-button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .switch-camera-button:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+
+  .switch-camera-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .switch-camera-button svg {
+    color: #2d3748;
   }
 
   .error-message {
@@ -277,6 +345,18 @@
   @media (max-width: 640px) {
     .capture-button {
       font-size: 1rem;
+    }
+
+    .switch-camera-button {
+      top: 0.75rem;
+      right: 0.75rem;
+      width: 44px;
+      height: 44px;
+    }
+
+    .switch-camera-button svg {
+      width: 20px;
+      height: 20px;
     }
   }
 </style>

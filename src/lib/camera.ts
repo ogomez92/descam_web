@@ -20,7 +20,7 @@ export async function checkCameraPermission(): Promise<CameraPermissionStatus> {
 /**
  * Request camera access and return the video stream
  */
-export async function getCameraStream(): Promise<MediaStream> {
+export async function getCameraStream(facingMode: 'user' | 'environment' = 'user'): Promise<MediaStream> {
   // Check if the browser supports mediaDevices
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     throw new Error(
@@ -31,7 +31,7 @@ export async function getCameraStream(): Promise<MediaStream> {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        facingMode: 'environment', // Prefer back camera on mobile
+        facingMode: facingMode, // 'user' = front camera, 'environment' = back camera
         width: { ideal: 1920 },
         height: { ideal: 1080 },
       },

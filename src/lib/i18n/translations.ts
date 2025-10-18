@@ -23,6 +23,9 @@ export interface Translations {
     errorGeneric: string;
     errorPlaceholder: string;
     statusPlaceholder: string;
+    switchCamera: string;
+    frontCamera: string;
+    backCamera: string;
   };
   prompt: {
     label: string;
@@ -67,6 +70,9 @@ export const translations: Record<Language, Translations> = {
       errorGeneric: 'An error occurred while accessing the camera. Please try again.',
       errorPlaceholder: 'No errors',
       statusPlaceholder: 'Status updates will appear here',
+      switchCamera: 'Switch Camera',
+      frontCamera: 'Front Camera',
+      backCamera: 'Back Camera',
     },
     prompt: {
       label: 'Custom Prompt (optional)',
@@ -109,6 +115,9 @@ export const translations: Record<Language, Translations> = {
       errorGeneric: 'Ocurrió un error al acceder a la cámara. Por favor intenta de nuevo.',
       errorPlaceholder: 'Sin errores',
       statusPlaceholder: 'Las actualizaciones de estado aparecerán aquí',
+      switchCamera: 'Cambiar Cámara',
+      frontCamera: 'Cámara Frontal',
+      backCamera: 'Cámara Trasera',
     },
     prompt: {
       label: 'Instrucción Personalizada (opcional)',
@@ -151,6 +160,9 @@ export const translations: Record<Language, Translations> = {
       errorGeneric: 'Beim Zugriff auf die Kamera ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.',
       errorPlaceholder: 'Keine Fehler',
       statusPlaceholder: 'Statusaktualisierungen werden hier angezeigt',
+      switchCamera: 'Kamera Wechseln',
+      frontCamera: 'Frontkamera',
+      backCamera: 'Rückkamera',
     },
     prompt: {
       label: 'Benutzerdefinierte Anweisung (optional)',
@@ -193,6 +205,9 @@ export const translations: Record<Language, Translations> = {
       errorGeneric: 'Une erreur s\'est produite lors de l\'accès à la caméra. Veuillez réessayer.',
       errorPlaceholder: 'Aucune erreur',
       statusPlaceholder: 'Les mises à jour de statut apparaîtront ici',
+      switchCamera: 'Changer de Caméra',
+      frontCamera: 'Caméra Avant',
+      backCamera: 'Caméra Arrière',
     },
     prompt: {
       label: 'Instruction Personnalisée (optionnel)',
@@ -235,6 +250,9 @@ export const translations: Record<Language, Translations> = {
       errorGeneric: 'Si è verificato un errore durante l\'accesso alla fotocamera. Riprova.',
       errorPlaceholder: 'Nessun errore',
       statusPlaceholder: 'Gli aggiornamenti di stato appariranno qui',
+      switchCamera: 'Cambia Fotocamera',
+      frontCamera: 'Fotocamera Anteriore',
+      backCamera: 'Fotocamera Posteriore',
     },
     prompt: {
       label: 'Istruzione Personalizzata (opzionale)',
