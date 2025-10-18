@@ -12,6 +12,7 @@ export interface Translations {
     apiKeyPlaceholder: string;
     saveButton: string;
     securityNote: string;
+    sourceCodeLink: string;
   };
   camera: {
     captureButton: string;
@@ -52,6 +53,7 @@ export const translations: Record<Language, Translations> = {
       apiKeyPlaceholder: 'sk-...',
       saveButton: 'Save and Continue',
       securityNote: 'Your API key is stored locally and never leaves your device except when making requests to OpenAI.',
+      sourceCodeLink: 'View source code on GitHub',
     },
     camera: {
       captureButton: 'Capture Image',
@@ -90,6 +92,7 @@ export const translations: Record<Language, Translations> = {
       apiKeyPlaceholder: 'sk-...',
       saveButton: 'Guardar y Continuar',
       securityNote: 'Tu clave API se almacena localmente y nunca sale de tu dispositivo excepto al hacer solicitudes a OpenAI.',
+      sourceCodeLink: 'Ver código fuente en GitHub',
     },
     camera: {
       captureButton: 'Capturar Imagen',
@@ -128,6 +131,7 @@ export const translations: Record<Language, Translations> = {
       apiKeyPlaceholder: 'sk-...',
       saveButton: 'Speichern und Fortfahren',
       securityNote: 'Ihr API-Schlüssel wird lokal gespeichert und verlässt Ihr Gerät nur bei Anfragen an OpenAI.',
+      sourceCodeLink: 'Quellcode auf GitHub ansehen',
     },
     camera: {
       captureButton: 'Bild Aufnehmen',
@@ -166,6 +170,7 @@ export const translations: Record<Language, Translations> = {
       apiKeyPlaceholder: 'sk-...',
       saveButton: 'Enregistrer et Continuer',
       securityNote: 'Votre clé API est stockée localement et ne quitte jamais votre appareil sauf lors des requêtes à OpenAI.',
+      sourceCodeLink: 'Voir le code source sur GitHub',
     },
     camera: {
       captureButton: 'Capturer l\'Image',
@@ -204,6 +209,7 @@ export const translations: Record<Language, Translations> = {
       apiKeyPlaceholder: 'sk-...',
       saveButton: 'Salva e Continua',
       securityNote: 'La tua chiave API è memorizzata localmente e non lascia mai il tuo dispositivo tranne quando effettui richieste a OpenAI.',
+      sourceCodeLink: 'Visualizza codice sorgente su GitHub',
     },
     camera: {
       captureButton: 'Cattura Immagine',

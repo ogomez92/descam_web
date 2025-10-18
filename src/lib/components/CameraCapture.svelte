@@ -13,6 +13,7 @@
 
   let t = $derived(getTranslations());
   let videoElement = $state<HTMLVideoElement>();
+  let promptTextarea = $state<HTMLTextAreaElement>();
   let stream = $state<MediaStream | null>(null);
   let statusMessage = $state('');
   let errorMessage = $state('');
@@ -52,6 +53,11 @@
       } else {
         errorMessage = errMsg;
       }
+    }
+
+    // Focus the prompt textarea for better accessibility
+    if (promptTextarea) {
+      promptTextarea.focus();
     }
   });
 
@@ -104,23 +110,20 @@
     </video>
   </div>
 
-  {#if errorMessage}
-    <div class="error-message" role="alert" aria-live="assertive">
-      {errorMessage}
-    </div>
-  {/if}
+  <div class="error-message" role="alert" aria-live="assertive" aria-atomic="true" class:hidden={!errorMessage}>
+    {errorMessage || '\u00A0'}
+  </div>
 
-  {#if statusMessage}
-    <div class="status-message" role="status" aria-live="polite">
-      {statusMessage}
-    </div>
-  {/if}
+  <div class="status-message" role="status" aria-live="polite" aria-atomic="true" class:hidden={!statusMessage}>
+    {statusMessage || '\u00A0'}
+  </div>
 
   <div class="controls">
     <div class="form-group">
       <label for="custom-prompt">{t.prompt.label}</label>
       <textarea
         id="custom-prompt"
+        bind:this={promptTextarea}
         bind:value={customPrompt}
         placeholder={t.prompt.placeholder}
         rows="3"
@@ -171,6 +174,18 @@
     color: #600;
     font-weight: 500;
     line-height: 1.5;
+    min-height: 1rem;
+    transition: opacity 0.2s;
+  }
+
+  .error-message.hidden {
+    opacity: 0;
+    height: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    overflow: hidden;
   }
 
   .status-message {
@@ -182,6 +197,18 @@
     color: #1a5490;
     font-weight: 500;
     text-align: center;
+    min-height: 1rem;
+    transition: opacity 0.2s;
+  }
+
+  .status-message.hidden {
+    opacity: 0;
+    height: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    overflow: hidden;
   }
 
   .controls {
