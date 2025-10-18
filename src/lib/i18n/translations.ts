@@ -21,8 +21,6 @@ export interface Translations {
     errorNoPermission: string;
     errorNotSupported: string;
     errorGeneric: string;
-    errorPlaceholder: string;
-    statusPlaceholder: string;
     switchCamera: string;
     frontCamera: string;
     backCamera: string;
@@ -34,7 +32,6 @@ export interface Translations {
   };
   history: {
     title: string;
-    placeholder: string;
   };
   footer: {
     apiKeyFound: string;
@@ -68,8 +65,6 @@ export const translations: Record<Language, Translations> = {
       errorNoPermission: 'Camera permission denied. Please allow camera access in your browser settings.',
       errorNotSupported: 'Camera access is not supported in this browser. Please use HTTPS or a modern browser.',
       errorGeneric: 'An error occurred while accessing the camera. Please try again.',
-      errorPlaceholder: 'No errors',
-      statusPlaceholder: 'Status updates will appear here',
       switchCamera: 'Switch Camera',
       frontCamera: 'Front Camera',
       backCamera: 'Back Camera',
@@ -81,7 +76,6 @@ export const translations: Record<Language, Translations> = {
     },
     history: {
       title: 'History',
-      placeholder: 'Descriptions will appear here',
     },
     footer: {
       apiKeyFound: 'OpenAI API Key: Configured',
@@ -113,8 +107,6 @@ export const translations: Record<Language, Translations> = {
       errorNoPermission: 'Permiso de cámara denegado. Por favor permite el acceso a la cámara en la configuración de tu navegador.',
       errorNotSupported: 'El acceso a la cámara no está soportado en este navegador. Por favor usa HTTPS o un navegador moderno.',
       errorGeneric: 'Ocurrió un error al acceder a la cámara. Por favor intenta de nuevo.',
-      errorPlaceholder: 'Sin errores',
-      statusPlaceholder: 'Las actualizaciones de estado aparecerán aquí',
       switchCamera: 'Cambiar Cámara',
       frontCamera: 'Cámara Frontal',
       backCamera: 'Cámara Trasera',
@@ -126,7 +118,6 @@ export const translations: Record<Language, Translations> = {
     },
     history: {
       title: 'Historial',
-      placeholder: 'Las descripciones aparecerán aquí',
     },
     footer: {
       apiKeyFound: 'Clave API de OpenAI: Configurada',
@@ -158,8 +149,6 @@ export const translations: Record<Language, Translations> = {
       errorNoPermission: 'Kamera-Berechtigung verweigert. Bitte erlauben Sie den Kamerazugriff in Ihren Browsereinstellungen.',
       errorNotSupported: 'Kamerazugriff wird in diesem Browser nicht unterstützt. Bitte verwenden Sie HTTPS oder einen modernen Browser.',
       errorGeneric: 'Beim Zugriff auf die Kamera ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.',
-      errorPlaceholder: 'Keine Fehler',
-      statusPlaceholder: 'Statusaktualisierungen werden hier angezeigt',
       switchCamera: 'Kamera Wechseln',
       frontCamera: 'Frontkamera',
       backCamera: 'Rückkamera',
@@ -171,7 +160,6 @@ export const translations: Record<Language, Translations> = {
     },
     history: {
       title: 'Verlauf',
-      placeholder: 'Beschreibungen werden hier angezeigt',
     },
     footer: {
       apiKeyFound: 'OpenAI API-Schlüssel: Konfiguriert',
@@ -203,8 +191,6 @@ export const translations: Record<Language, Translations> = {
       errorNoPermission: 'Permission de caméra refusée. Veuillez autoriser l\'accès à la caméra dans les paramètres de votre navigateur.',
       errorNotSupported: 'L\'accès à la caméra n\'est pas pris en charge dans ce navigateur. Veuillez utiliser HTTPS ou un navigateur moderne.',
       errorGeneric: 'Une erreur s\'est produite lors de l\'accès à la caméra. Veuillez réessayer.',
-      errorPlaceholder: 'Aucune erreur',
-      statusPlaceholder: 'Les mises à jour de statut apparaîtront ici',
       switchCamera: 'Changer de Caméra',
       frontCamera: 'Caméra Avant',
       backCamera: 'Caméra Arrière',
@@ -216,7 +202,6 @@ export const translations: Record<Language, Translations> = {
     },
     history: {
       title: 'Historique',
-      placeholder: 'Les descriptions apparaîtront ici',
     },
     footer: {
       apiKeyFound: 'Clé API OpenAI : Configurée',
@@ -248,8 +233,6 @@ export const translations: Record<Language, Translations> = {
       errorNoPermission: 'Permesso fotocamera negato. Consenti l\'accesso alla fotocamera nelle impostazioni del browser.',
       errorNotSupported: 'L\'accesso alla fotocamera non è supportato in questo browser. Utilizza HTTPS o un browser moderno.',
       errorGeneric: 'Si è verificato un errore durante l\'accesso alla fotocamera. Riprova.',
-      errorPlaceholder: 'Nessun errore',
-      statusPlaceholder: 'Gli aggiornamenti di stato appariranno qui',
       switchCamera: 'Cambia Fotocamera',
       frontCamera: 'Fotocamera Anteriore',
       backCamera: 'Fotocamera Posteriore',
@@ -261,7 +244,6 @@ export const translations: Record<Language, Translations> = {
     },
     history: {
       title: 'Cronologia',
-      placeholder: 'Le descrizioni appariranno qui',
     },
     footer: {
       apiKeyFound: 'Chiave API OpenAI: Configurata',

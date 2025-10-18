@@ -7,27 +7,7 @@
 
   let { descriptions }: Props = $props();
   let t = $derived(getTranslations());
-
-  // Track the latest description for the live region
-  let liveRegionMessage = $state('');
-  let previousCount = $state(0);
-
-  // Initialize with placeholder and update when new descriptions are added
-  $effect(() => {
-    if (descriptions.length > previousCount && descriptions.length > 0) {
-      const latestDescription = descriptions[descriptions.length - 1];
-      liveRegionMessage = `${t.history.title} ${descriptions.length}: ${latestDescription}`;
-      previousCount = descriptions.length;
-    } else if (liveRegionMessage === '' || descriptions.length === 0) {
-      liveRegionMessage = t.history.placeholder;
-    }
-  });
 </script>
-
-<!-- Live region for screen readers - always present -->
-<div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
-  {liveRegionMessage}
-</div>
 
 {#if descriptions.length > 0}
   <div class="history">
@@ -37,7 +17,7 @@
       {#each descriptions as description, index}
         <div class="description-item">
           <h3>Description {descriptions.length - index}</h3>
-          <p>{description}</p>
+          <p role="alert">{description}</p>
         </div>
       {/each}
     </div>
@@ -45,19 +25,6 @@
 {/if}
 
 <style>
-  /* Screen reader only - visually hidden but accessible */
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border-width: 0;
-  }
-
   .history {
     margin-top: 2rem;
     padding-top: 2rem;
