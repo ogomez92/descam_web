@@ -1,14 +1,29 @@
 <script lang="ts">
-  import { setApiKey } from '../storage.svelte';
+  import { setApiKey, setGeminiApiKey } from '../storage.svelte';
   import { getTranslations } from '../i18n/store.svelte';
   import LanguageSelector from './LanguageSelector.svelte';
 
-  let apiKeyInput = $state('');
+  let openaiApiKeyInput = $state('');
+  let geminiApiKeyInput = $state('');
+  let errorMessage = $state('');
   let t = $derived(getTranslations());
 
   function handleSave() {
-    if (apiKeyInput.trim()) {
-      setApiKey(apiKeyInput.trim());
+    const hasOpenAI = openaiApiKeyInput.trim().length > 0;
+    const hasGemini = geminiApiKeyInput.trim().length > 0;
+
+    if (!hasOpenAI && !hasGemini) {
+      errorMessage = t.onboarding.atLeastOneKeyRequired;
+      return;
+    }
+
+    errorMessage = '';
+
+    if (hasOpenAI) {
+      setApiKey(openaiApiKeyInput.trim());
+    }
+    if (hasGemini) {
+      setGeminiApiKey(geminiApiKeyInput.trim());
     }
   }
 
@@ -27,14 +42,31 @@
     <p class="description">{t.onboarding.description}</p>
 
     <form onsubmit={handleSubmit}>
+      {#if errorMessage}
+        <div class="error-message" role="alert">
+          {errorMessage}
+        </div>
+      {/if}
+
       <div class="form-group">
-        <label for="api-key">{t.onboarding.apiKeyLabel}</label>
+        <label for="openai-api-key">{t.onboarding.apiKeyLabel}</label>
         <input
-          id="api-key"
+          id="openai-api-key"
           type="password"
-          bind:value={apiKeyInput}
+          bind:value={openaiApiKeyInput}
           placeholder={t.onboarding.apiKeyPlaceholder}
-          required
+          autocomplete="off"
+          aria-describedby="security-note"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="gemini-api-key">{t.onboarding.geminiApiKeyLabel}</label>
+        <input
+          id="gemini-api-key"
+          type="password"
+          bind:value={geminiApiKeyInput}
+          placeholder={t.onboarding.geminiApiKeyPlaceholder}
           autocomplete="off"
           aria-describedby="security-note"
         />
@@ -91,6 +123,16 @@
     margin: 0 0 1.5rem 0;
     color: #4a5568;
     line-height: 1.6;
+  }
+
+  .error-message {
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    background: #fed7d7;
+    color: #9b2c2c;
+    border-radius: 4px;
+    border-left: 4px solid #f56565;
+    font-size: 0.9rem;
   }
 
   .form-group {

@@ -1,8 +1,16 @@
 export type CameraPermissionStatus = 'granted' | 'denied' | 'unknown';
 
+export type VideoSourceType = 'camera' | 'screen';
+
 export interface CameraDevice {
   deviceId: string;
   label: string;
+}
+
+export interface VideoSource {
+  type: VideoSourceType;
+  stream: MediaStream;
+  device?: CameraDevice;
 }
 
 /**
@@ -125,4 +133,37 @@ export function captureFrame(video: HTMLVideoElement): string {
  */
 export function stopStream(stream: MediaStream): void {
   stream.getTracks().forEach((track) => track.stop());
+}
+
+/**
+ * Request screen capture access and return the display stream
+ */
+export async function getScreenStream(): Promise<MediaStream> {
+  // Check if the browser supports getDisplayMedia
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    throw new Error(
+      'Screen capture is not supported in this browser. Please use a modern browser.'
+    );
+  }
+
+  try {
+    const constraints: DisplayMediaStreamOptions = {
+      video: {
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
+      audio: false, // Don't capture audio as per user request
+    };
+
+    const stream = await navigator.mediaDevices.getDisplayMedia(constraints);
+    return stream;
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.name === 'NotAllowedError') {
+        throw new Error('Screen capture permission denied');
+      }
+      throw new Error(error.message);
+    }
+    throw new Error('Failed to capture screen');
+  }
 }

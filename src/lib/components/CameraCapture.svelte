@@ -1,10 +1,13 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { getCameraStream, captureFrame, stopStream, enumerateCameras, type CameraDevice } from '../camera';
+  import { getCameraStream, captureFrame, stopStream, enumerateCameras, getScreenStream, type CameraDevice } from '../camera';
   import { describeImage } from '../openai';
-  import { getApiKey } from '../storage.svelte';
-  import { getTranslations } from '../i18n/store.svelte';
+  import { describeImageWithGemini } from '../gemini';
+  import { getApiKey, getGeminiApiKey, getOutputMode } from '../storage.svelte';
+  import { getTranslations, getCurrentLanguage } from '../i18n/store.svelte';
   import { setCurrentCamera } from '../cameraStore.svelte';
+  import { TextToSpeech, getTTSLanguage } from '../tts';
+  import OutputModeSelector from './OutputModeSelector.svelte';
 
   interface Props {
     onDescriptionComplete: (description: string) => void;
@@ -26,6 +29,8 @@
   let availableCameras = $state<CameraDevice[]>([]);
   let selectedCameraIndex = $state(0);
   let cameraTabRefs = $state<(HTMLButtonElement | undefined)[]>([]);
+  let videoSourceType = $state<'camera' | 'screen'>('camera');
+  let tts: TextToSpeech | null = null;
 
   // Update prompt when language changes, but only if user hasn't customized it
   $effect(() => {
@@ -130,11 +135,19 @@
       stopStream(stream);
     }
     setCurrentCamera(null); // Clear camera state on unmount
+
+    // Cleanup TTS
+    if (tts) {
+      tts.cancel();
+    }
   });
 
   async function handleCapture() {
-    const apiKey = getApiKey();
-    if (!videoElement || !apiKey || isProcessing) return;
+    const openaiKey = getApiKey();
+    const geminiKey = getGeminiApiKey();
+
+    // Check if at least one API key is available
+    if (!videoElement || (!openaiKey && !geminiKey) || isProcessing) return;
 
     try {
       isProcessing = true;
@@ -149,8 +162,13 @@
       // Get the prompt (use custom or default)
       const prompt = customPrompt.trim() || t.prompt.defaultPrompt;
 
-      // Send to OpenAI
-      const result = await describeImage(apiKey, imageDataUrl, prompt);
+      // Use OpenAI if available, otherwise use Gemini
+      let result;
+      if (openaiKey) {
+        result = await describeImage(openaiKey, imageDataUrl, prompt);
+      } else if (geminiKey) {
+        result = await describeImageWithGemini(geminiKey, imageDataUrl, prompt);
+      }
 
       if (result.error) {
         errorMessage = result.error.message;
@@ -158,6 +176,7 @@
       } else {
         statusMessage = '';
         onDescriptionComplete(result.description);
+        handleDescriptionOutput(result.description);
       }
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : t.camera.errorGeneric;
@@ -172,8 +191,11 @@
   }
 
   async function handleFileUpload(event: Event) {
-    const apiKey = getApiKey();
-    if (!apiKey || isProcessing) return;
+    const openaiKey = getApiKey();
+    const geminiKey = getGeminiApiKey();
+
+    // Check if at least one API key is available
+    if ((!openaiKey && !geminiKey) || isProcessing) return;
 
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -195,8 +217,13 @@
       // Get the prompt (use custom or default)
       const prompt = customPrompt.trim() || t.prompt.defaultPrompt;
 
-      // Send to OpenAI
-      const result = await describeImage(apiKey, imageDataUrl, prompt);
+      // Use OpenAI if available, otherwise use Gemini
+      let result;
+      if (openaiKey) {
+        result = await describeImage(openaiKey, imageDataUrl, prompt);
+      } else if (geminiKey) {
+        result = await describeImageWithGemini(geminiKey, imageDataUrl, prompt);
+      }
 
       if (result.error) {
         errorMessage = result.error.message;
@@ -204,6 +231,7 @@
       } else {
         statusMessage = '';
         onDescriptionComplete(result.description);
+        handleDescriptionOutput(result.description);
       }
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : t.camera.errorGeneric;
@@ -212,6 +240,59 @@
       isProcessing = false;
       // Clear the input so the same file can be selected again
       input.value = '';
+    }
+  }
+
+  function handleDescriptionOutput(description: string) {
+    const outputMode = getOutputMode();
+
+    if (outputMode === 'tts' && description) {
+      if (!tts) {
+        tts = new TextToSpeech();
+      }
+      const lang = getTTSLanguage(getCurrentLanguage());
+      tts.speak(description, { lang });
+    }
+  }
+
+  async function startScreenShare() {
+    try {
+      errorMessage = '';
+
+      if (stream) {
+        stopStream(stream);
+      }
+
+      stream = await getScreenStream();
+
+      if (videoElement) {
+        videoElement.srcObject = stream;
+        await videoElement.play();
+        isCameraReady = true;
+        videoSourceType = 'screen';
+
+        // Listen for when user stops sharing via browser UI
+        stream.getVideoTracks()[0].onended = () => {
+          stopScreenShare();
+        };
+      }
+    } catch (error) {
+      errorMessage = error instanceof Error ? error.message : t.camera.errorScreenCapture;
+      isCameraReady = false;
+    }
+  }
+
+  function stopScreenShare() {
+    if (stream && videoSourceType === 'screen') {
+      stopStream(stream);
+      stream = null;
+      isCameraReady = false;
+      videoSourceType = 'camera';
+
+      // Restart camera
+      if (availableCameras.length > 0) {
+        startCamera(availableCameras[selectedCameraIndex].deviceId);
+      }
     }
   }
 
@@ -267,6 +348,9 @@
   {/if}
 
   <div class="controls">
+    <!-- Output Mode Selector -->
+    <OutputModeSelector />
+
     <div class="form-group">
       <div class="prompt-header">
         <label for="custom-prompt">{t.prompt.label}</label>
@@ -317,6 +401,26 @@
       >
         {t.camera.uploadButton}
       </button>
+
+      {#if videoSourceType === 'camera'}
+        <button
+          class="screen-share-button"
+          onclick={startScreenShare}
+          disabled={isProcessing}
+          aria-label={t.camera.shareScreen}
+        >
+          {t.camera.shareScreen}
+        </button>
+      {:else}
+        <button
+          class="stop-share-button"
+          onclick={stopScreenShare}
+          disabled={isProcessing}
+          aria-label={t.camera.stopSharing}
+        >
+          {t.camera.stopSharing}
+        </button>
+      {/if}
     </div>
   </div>
 </div>
@@ -482,12 +586,14 @@
 
   .button-group {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 0.75rem;
   }
 
   .capture-button,
-  .upload-button {
+  .upload-button,
+  .screen-share-button,
+  .stop-share-button {
     padding: 1rem;
     border: none;
     border-radius: 4px;
@@ -533,14 +639,53 @@
     cursor: not-allowed;
   }
 
+  .screen-share-button {
+    background: #4299e1;
+    color: white;
+  }
+
+  .screen-share-button:hover:not(:disabled) {
+    background: #3182ce;
+  }
+
+  .screen-share-button:active:not(:disabled) {
+    background: #2c5282;
+  }
+
+  .screen-share-button:disabled {
+    background: #cbd5e0;
+    cursor: not-allowed;
+  }
+
+  .stop-share-button {
+    background: #f56565;
+    color: white;
+  }
+
+  .stop-share-button:hover:not(:disabled) {
+    background: #e53e3e;
+  }
+
+  .stop-share-button:active:not(:disabled) {
+    background: #c53030;
+  }
+
+  .stop-share-button:disabled {
+    background: #cbd5e0;
+    cursor: not-allowed;
+  }
+
   @media (max-width: 640px) {
     .capture-button,
-    .upload-button {
-      font-size: 1rem;
-      padding: 0.875rem;
+    .upload-button,
+    .screen-share-button,
+    .stop-share-button {
+      font-size: 0.9rem;
+      padding: 0.75rem;
     }
 
     .button-group {
+      grid-template-columns: 1fr;
       gap: 0.5rem;
     }
 
