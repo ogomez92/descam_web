@@ -81,6 +81,11 @@ export interface Translations {
   history: {
     title: string;
   };
+  outputs: {
+    legend: string;
+    stopTTS: string;
+    ttsRate: string;
+  };
   footer: {
     apiKeyFound: string;
     apiKeyNotFound: string;
@@ -175,6 +180,11 @@ export const translations: Record<Language, Translations> = {
     history: {
       title: 'History',
     },
+    outputs: {
+      legend: 'Outputs',
+      stopTTS: 'Stop Speaking',
+      ttsRate: 'Speech Rate',
+    },
     footer: {
       apiKeyFound: 'OpenAI API Key: Configured',
       apiKeyNotFound: 'OpenAI API Key: Not Configured',
@@ -266,6 +276,11 @@ export const translations: Record<Language, Translations> = {
     },
     history: {
       title: 'Historial',
+    },
+    outputs: {
+      legend: 'Salidas',
+      stopTTS: 'Detener Lectura',
+      ttsRate: 'Velocidad de Voz',
     },
     footer: {
       apiKeyFound: 'Clave API de OpenAI: Configurada',
@@ -359,6 +374,11 @@ export const translations: Record<Language, Translations> = {
     history: {
       title: 'Verlauf',
     },
+    outputs: {
+      legend: 'Ausgaben',
+      stopTTS: 'Sprechen Stoppen',
+      ttsRate: 'Sprechgeschwindigkeit',
+    },
     footer: {
       apiKeyFound: 'OpenAI API-Schlüssel: Konfiguriert',
       apiKeyNotFound: 'OpenAI API-Schlüssel: Nicht Konfiguriert',
@@ -451,6 +471,11 @@ export const translations: Record<Language, Translations> = {
     history: {
       title: 'Historique',
     },
+    outputs: {
+      legend: 'Sorties',
+      stopTTS: 'Arrêter la Lecture',
+      ttsRate: 'Vitesse de Parole',
+    },
     footer: {
       apiKeyFound: 'Clé API OpenAI : Configurée',
       apiKeyNotFound: 'Clé API OpenAI : Non Configurée',
@@ -542,6 +567,11 @@ export const translations: Record<Language, Translations> = {
     },
     history: {
       title: 'Cronologia',
+    },
+    outputs: {
+      legend: 'Uscite',
+      stopTTS: 'Ferma Lettura',
+      ttsRate: 'Velocità di Voce',
     },
     footer: {
       apiKeyFound: 'Chiave API OpenAI: Configurata',

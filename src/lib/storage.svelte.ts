@@ -2,6 +2,7 @@ const OPENAI_API_KEY_STORAGE_KEY = 'descam_openai_api_key';
 const GEMINI_API_KEY_STORAGE_KEY = 'descam_gemini_api_key';
 const MODE_STORAGE_KEY = 'descam_mode';
 const OUTPUT_MODE_STORAGE_KEY = 'descam_output_mode';
+const TTS_RATE_STORAGE_KEY = 'descam_tts_rate';
 
 export type AppMode = 'photo' | 'video';
 export type OutputMode = 'aria' | 'tts';
@@ -96,11 +97,36 @@ function setOutputModeToStorage(outputMode: OutputMode): void {
   }
 }
 
+// TTS rate functions
+function getTTSRateFromStorage(): number {
+  try {
+    const rate = localStorage.getItem(TTS_RATE_STORAGE_KEY);
+    if (rate) {
+      const parsed = parseFloat(rate);
+      // Ensure rate is between 0.5 and 2.0
+      return Math.min(Math.max(parsed, 0.5), 2.0);
+    }
+    return 1.0; // Default rate
+  } catch (error) {
+    console.error('Error reading TTS rate from localStorage:', error);
+    return 1.0;
+  }
+}
+
+function setTTSRateToStorage(rate: number): void {
+  try {
+    localStorage.setItem(TTS_RATE_STORAGE_KEY, rate.toString());
+  } catch (error) {
+    console.error('Error saving TTS rate to localStorage:', error);
+  }
+}
+
 // Svelte 5 reactive state
 let apiKey = $state<string | null>(getApiKeyFromStorage());
 let geminiApiKey = $state<string | null>(getGeminiApiKeyFromStorage());
 let mode = $state<AppMode>(getModeFromStorage());
 let outputMode = $state<OutputMode>(getOutputModeFromStorage());
+let ttsRate = $state<number>(getTTSRateFromStorage());
 
 // OpenAI API Key exports
 export function getApiKey(): string | null {
@@ -150,4 +176,16 @@ export function getOutputMode(): OutputMode {
 export function setOutputMode(newOutputMode: OutputMode): void {
   outputMode = newOutputMode;
   setOutputModeToStorage(newOutputMode);
+}
+
+// TTS rate exports
+export function getTTSRate(): number {
+  return ttsRate;
+}
+
+export function setTTSRate(newRate: number): void {
+  // Ensure rate is between 0.5 and 2.0
+  const clampedRate = Math.min(Math.max(newRate, 0.5), 2.0);
+  ttsRate = clampedRate;
+  setTTSRateToStorage(clampedRate);
 }

@@ -3,7 +3,7 @@
   import { getCameraStream, captureFrame, stopStream, enumerateCameras, getScreenStream, type CameraDevice } from '../camera';
   import { describeImage } from '../openai';
   import { describeImageWithGemini } from '../gemini';
-  import { getApiKey, getGeminiApiKey, getOutputMode } from '../storage.svelte';
+  import { getApiKey, getGeminiApiKey, getOutputMode, getTTSRate } from '../storage.svelte';
   import { getTranslations, getCurrentLanguage } from '../i18n/store.svelte';
   import { setCurrentCamera } from '../cameraStore.svelte';
   import { TextToSpeech, getTTSLanguage } from '../tts';
@@ -105,6 +105,13 @@
     }
   }
 
+  function handleKeydown(event: KeyboardEvent) {
+    // Stop TTS on Escape key
+    if (event.key === 'Escape' && tts && getOutputMode() === 'tts') {
+      tts.cancel();
+    }
+  }
+
   onMount(async () => {
     // First, get a temporary stream to trigger permission prompt and populate device labels
     try {
@@ -128,6 +135,9 @@
     if (promptTextarea) {
       promptTextarea.focus();
     }
+
+    // Add escape key listener
+    window.addEventListener('keydown', handleKeydown);
   });
 
   onDestroy(() => {
@@ -140,6 +150,9 @@
     if (tts) {
       tts.cancel();
     }
+
+    // Remove escape key listener
+    window.removeEventListener('keydown', handleKeydown);
   });
 
   async function handleCapture() {
@@ -153,6 +166,11 @@
       isProcessing = true;
       errorMessage = '';
       statusMessage = t.camera.capturingFrame;
+
+      // Add 3 second delay when in screen share mode
+      if (videoSourceType === 'screen') {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
 
       // Capture the frame
       const imageDataUrl = captureFrame(videoElement);
@@ -251,7 +269,8 @@
         tts = new TextToSpeech();
       }
       const lang = getTTSLanguage(getCurrentLanguage());
-      tts.speak(description, { lang });
+      const rate = getTTSRate();
+      tts.speak(description, { lang, rate });
     }
   }
 
@@ -301,6 +320,12 @@
     // Focus the textarea after resetting
     if (promptTextarea) {
       promptTextarea.focus();
+    }
+  }
+
+  function handleStopTTS() {
+    if (tts) {
+      tts.cancel();
     }
   }
 </script>

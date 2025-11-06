@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getTranslations } from '../i18n/store.svelte';
+  import { getOutputMode } from '../storage.svelte';
 
   interface Props {
     descriptions: string[];
@@ -7,6 +8,7 @@
 
   let { descriptions }: Props = $props();
   let t = $derived(getTranslations());
+  let outputMode = $derived(getOutputMode());
 </script>
 
 {#if descriptions.length > 0}
@@ -17,7 +19,7 @@
       {#each descriptions as description, index}
         <div class="description-item">
           <h3>Description {descriptions.length - index}</h3>
-          <p role="alert">{description}</p>
+          <p role={index === 0 && outputMode === 'aria' ? 'alert' : undefined}>{description}</p>
         </div>
       {/each}
     </div>
@@ -26,9 +28,7 @@
 
 <style>
   .history {
-    margin-top: 2rem;
-    padding-top: 2rem;
-    border-top: 2px solid #e2e8f0;
+    margin-top: 0;
   }
 
   h2 {

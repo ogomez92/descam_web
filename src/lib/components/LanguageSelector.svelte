@@ -18,7 +18,7 @@
   }
 
   function handleButtonKeyDown(event: KeyboardEvent) {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       if (!isOpen) {
         isOpen = true;
@@ -130,6 +130,7 @@
       id="language-menu"
       class="language-dropdown"
       role="menu"
+      tabindex="-1"
       onkeydown={handleMenuKeyDown}
     >
       {#each supportedLanguages as language}
