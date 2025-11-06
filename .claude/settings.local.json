@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create vite@latest . -- --template svelte-ts)",
+      "Bash(npm install)",
+      "Bash(npm run build)",
+      "Bash(timeout 5 npm run dev)",
+      "Bash(npm run dev)",
+      "WebSearch",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:github.com)",
+      "Bash(timeout /t 3)",
+      "Bash(nul)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
