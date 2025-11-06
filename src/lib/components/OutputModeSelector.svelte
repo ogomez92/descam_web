@@ -1,15 +1,56 @@
 <script lang="ts">
-  import { getOutputMode, setOutputMode, type OutputMode } from '../storage.svelte';
+  import { getOutputMode, setOutputMode, type OutputMode, getTTSRate, setTTSRate } from '../storage.svelte';
   import { getTranslations, getCurrentLanguage } from '../i18n/store.svelte';
-  import { isTTSSupported } from '../tts';
+  import { isTTSSupported, TextToSpeech } from '../tts';
+
+  interface Props {
+    tts: TextToSpeech | null;
+  }
+
+  let { tts }: Props = $props();
 
   let t = $derived(getTranslations());
   let currentMode = $derived(getOutputMode());
   let ttsSupported = $state(isTTSSupported());
+  let ttsRate = $derived(getTTSRate());
+  let isSpeaking = $state(false);
+
+  // Monitor TTS speaking state
+  $effect(() => {
+    if (tts) {
+      // Check if speech synthesis is speaking
+      const checkSpeaking = () => {
+        isSpeaking = window.speechSynthesis?.speaking || false;
+      };
+
+      // Check immediately
+      checkSpeaking();
+
+      // Set up interval to check speaking state
+      const interval = setInterval(checkSpeaking, 100);
+
+      return () => clearInterval(interval);
+    } else {
+      isSpeaking = false;
+    }
+  });
 
   function handleModeChange(event: Event) {
     const target = event.target as HTMLInputElement;
     setOutputMode(target.value as OutputMode);
+  }
+
+  function handleStopTTS() {
+    if (tts) {
+      tts.cancel();
+      isSpeaking = false;
+    }
+  }
+
+  function handleRateChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const newRate = parseFloat(target.value);
+    setTTSRate(newRate);
   }
 </script>
 
@@ -49,6 +90,26 @@
         </span>
       </label>
     </div>
+
+    {#if currentMode === 'tts'}
+      <div class="tts-controls">
+        <button class="stop-tts-button" onclick={handleStopTTS} disabled={!isSpeaking}>
+          {t.outputs.stopTTS}
+        </button>
+        <div class="rate-control">
+          <label for="tts-rate">{t.outputs.ttsRate}: {ttsRate.toFixed(1)}x</label>
+          <input
+            id="tts-rate"
+            type="range"
+            min="0.5"
+            max="2.0"
+            step="0.1"
+            value={ttsRate}
+            oninput={handleRateChange}
+          />
+        </div>
+      </div>
+    {/if}
   </fieldset>
 </div>
 
@@ -125,6 +186,61 @@
     line-height: 1.4;
   }
 
+  .tts-controls {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .stop-tts-button {
+    padding: 0.5rem 1rem;
+    background: #f56565;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .stop-tts-button:hover:not(:disabled) {
+    background: #e53e3e;
+  }
+
+  .stop-tts-button:active:not(:disabled) {
+    background: #c53030;
+  }
+
+  .stop-tts-button:disabled {
+    background: #cbd5e0;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .rate-control {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .rate-control label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #2d3748;
+  }
+
+  .rate-control input[type="range"] {
+    width: 100%;
+    cursor: pointer;
+  }
+
   @media (max-width: 640px) {
     fieldset {
       padding: 0.75rem;
@@ -144,6 +260,15 @@
 
     .radio-description {
       font-size: 0.8rem;
+    }
+
+    .tts-controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .rate-control {
+      min-width: 100%;
     }
   }
 </style>

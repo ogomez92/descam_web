@@ -3,7 +3,7 @@
   import { getCameraStream, captureFrame, stopStream, enumerateCameras, getScreenStream, type CameraDevice } from '../camera';
   import { describeImage } from '../openai';
   import { describeImageWithGemini } from '../gemini';
-  import { getApiKey, getGeminiApiKey, getOutputMode, getTTSRate } from '../storage.svelte';
+  import { getApiKey, getGeminiApiKey, getOutputMode, getTTSRate, getCustomPrompt, setCustomPrompt, removeCustomPrompt } from '../storage.svelte';
   import { getTranslations, getCurrentLanguage } from '../i18n/store.svelte';
   import { setCurrentCamera } from '../cameraStore.svelte';
   import { TextToSpeech, getTTSLanguage } from '../tts';
@@ -28,20 +28,49 @@
   let isCameraReady = $state(false);
   let availableCameras = $state<CameraDevice[]>([]);
   let selectedCameraIndex = $state(0);
-  let cameraTabRefs = $state<(HTMLButtonElement | undefined)[]>([]);
   let videoSourceType = $state<'camera' | 'screen'>('camera');
-  let tts: TextToSpeech | null = null;
+  let tts = $state<TextToSpeech | null>(null);
+  let isInitialized = $state(false);
+  let countdownMessage = $state('');
+  let countdownElement = $state<HTMLDivElement>();
+  let selectedSourceId = $state<string>(''); // deviceId or 'screen-share'
+
+  // Load saved custom prompt on initialization
+  $effect(() => {
+    if (!isInitialized) {
+      const savedPrompt = getCustomPrompt();
+      if (savedPrompt) {
+        customPrompt = savedPrompt;
+        previousDefaultPrompt = savedPrompt;
+      } else {
+        customPrompt = t.prompt.defaultPrompt;
+        previousDefaultPrompt = t.prompt.defaultPrompt;
+      }
+      isInitialized = true;
+    }
+  });
 
   // Update prompt when language changes, but only if user hasn't customized it
   $effect(() => {
     const currentDefault = t.prompt.defaultPrompt;
 
-    // If prompt is empty or still matches the previous default, update to new default
-    if (!customPrompt || customPrompt === previousDefaultPrompt) {
-      customPrompt = currentDefault;
-    }
+    // Only run after initialization
+    if (!isInitialized) return;
 
-    previousDefaultPrompt = currentDefault;
+    // If prompt matches the previous default (not customized), update to new default
+    if (customPrompt === previousDefaultPrompt) {
+      customPrompt = currentDefault;
+      previousDefaultPrompt = currentDefault;
+      // Clear saved prompt since we're using default
+      removeCustomPrompt();
+    }
+  });
+
+  // Save custom prompt whenever it changes (but only if different from default)
+  $effect(() => {
+    if (isInitialized && customPrompt !== t.prompt.defaultPrompt) {
+      setCustomPrompt(customPrompt);
+    }
   });
 
   async function startCamera(deviceId?: string) {
@@ -82,26 +111,29 @@
     }
   }
 
-  async function switchCamera(index: number) {
-    if (index < 0 || index >= availableCameras.length) return;
+  async function handleSourceChange(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    const sourceId = target.value;
+    selectedSourceId = sourceId;
 
-    selectedCameraIndex = index;
-    const camera = availableCameras[index];
-    await startCamera(camera.deviceId);
+    if (sourceId === 'screen-share') {
+      await startScreenShare();
+    } else {
+      // If switching from screen share back to camera
+      if (videoSourceType === 'screen') {
+        if (stream) {
+          stopStream(stream);
+          stream = null;
+        }
+        videoSourceType = 'camera';
+      }
 
-    // Restore focus to the selected tab
-    if (cameraTabRefs[index]) {
-      cameraTabRefs[index]?.focus();
-    }
-  }
-
-  function handleCameraTabKeydown(event: KeyboardEvent, index: number) {
-    if (event.key === 'ArrowLeft' && index > 0) {
-      event.preventDefault();
-      switchCamera(index - 1);
-    } else if (event.key === 'ArrowRight' && index < availableCameras.length - 1) {
-      event.preventDefault();
-      switchCamera(index + 1);
+      // Find the camera by deviceId
+      const cameraIndex = availableCameras.findIndex(cam => cam.deviceId === sourceId);
+      if (cameraIndex >= 0) {
+        selectedCameraIndex = cameraIndex;
+        await startCamera(sourceId);
+      }
     }
   }
 
@@ -126,6 +158,7 @@
 
     // Start with the first camera
     if (availableCameras.length > 0) {
+      selectedSourceId = availableCameras[0].deviceId;
       await startCamera(availableCameras[0].deviceId);
     } else {
       await startCamera();
@@ -155,6 +188,23 @@
     window.removeEventListener('keydown', handleKeydown);
   });
 
+  async function announceCountdown(count: number) {
+    const message = t.camera.countdown.replace('{count}', count.toString());
+
+    // Update ARIA live region
+    countdownMessage = message;
+
+    // Announce via TTS if enabled
+    if (getOutputMode() === 'tts') {
+      if (!tts) {
+        tts = new TextToSpeech();
+      }
+      const lang = getTTSLanguage(getCurrentLanguage());
+      const rate = getTTSRate();
+      tts.speak(message, { lang, rate });
+    }
+  }
+
   async function handleCapture() {
     const openaiKey = getApiKey();
     const geminiKey = getGeminiApiKey();
@@ -167,9 +217,14 @@
       errorMessage = '';
       statusMessage = t.camera.capturingFrame;
 
-      // Add 3 second delay when in screen share mode
+      // Add 3 second countdown when in screen share mode
       if (videoSourceType === 'screen') {
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        for (let i = 3; i >= 1; i--) {
+          await announceCountdown(i);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        // Clear countdown message
+        countdownMessage = '';
       }
 
       // Capture the frame
@@ -289,6 +344,7 @@
         await videoElement.play();
         isCameraReady = true;
         videoSourceType = 'screen';
+        selectedSourceId = 'screen-share';
 
         // Listen for when user stops sharing via browser UI
         stream.getVideoTracks()[0].onended = () => {
@@ -308,15 +364,20 @@
       isCameraReady = false;
       videoSourceType = 'camera';
 
-      // Restart camera
+      // Switch back to first camera
       if (availableCameras.length > 0) {
-        startCamera(availableCameras[selectedCameraIndex].deviceId);
+        selectedCameraIndex = 0;
+        selectedSourceId = availableCameras[0].deviceId;
+        startCamera(availableCameras[0].deviceId);
       }
     }
   }
 
   function handleResetPrompt() {
     customPrompt = t.prompt.defaultPrompt;
+    previousDefaultPrompt = t.prompt.defaultPrompt;
+    // Remove saved custom prompt
+    removeCustomPrompt();
     // Focus the textarea after resetting
     if (promptTextarea) {
       promptTextarea.focus();
@@ -331,29 +392,40 @@
 </script>
 
 <div class="camera-capture">
+  <!-- ARIA live region for countdown -->
+  <div
+    bind:this={countdownElement}
+    class="sr-only"
+    role="status"
+    aria-live="assertive"
+    aria-atomic="true"
+  >
+    {countdownMessage}
+  </div>
+
   <div class="video-container">
     <video bind:this={videoElement} autoplay playsinline muted aria-label="Camera preview">
       <track kind="captions" />
     </video>
-    {#if availableCameras.length > 1}
-      <div class="camera-tabs" role="tablist" aria-label="Camera selection">
-        {#each availableCameras as camera, index}
-          <button
-            bind:this={cameraTabRefs[index]}
-            role="tab"
-            aria-selected={index === selectedCameraIndex}
-            aria-disabled={isProcessing}
-            aria-controls="camera-preview"
-            tabindex={index === selectedCameraIndex ? 0 : -1}
-            onclick={() => switchCamera(index)}
-            onkeydown={(e) => handleCameraTabKeydown(e, index)}
-            class="camera-tab"
-            class:active={index === selectedCameraIndex}
-            title={camera.label}
-          >
-            {camera.label}
-          </button>
-        {/each}
+    {#if availableCameras.length >= 1}
+      <div class="camera-selector">
+        <label for="camera-select" class="sr-only">{t.camera.cameraSelectionAriaLabel}</label>
+        <select
+          id="camera-select"
+          value={selectedSourceId}
+          onchange={handleSourceChange}
+          disabled={isProcessing}
+          aria-label={t.camera.cameraSelectionAriaLabel}
+        >
+          {#each availableCameras as camera}
+            <option value={camera.deviceId}>
+              {camera.label}
+            </option>
+          {/each}
+          <option value="screen-share">
+            {t.camera.screenShare}
+          </option>
+        </select>
       </div>
     {/if}
   </div>
@@ -374,7 +446,7 @@
 
   <div class="controls">
     <!-- Output Mode Selector -->
-    <OutputModeSelector />
+    <OutputModeSelector {tts} />
 
     <div class="form-group">
       <div class="prompt-header">
@@ -426,31 +498,23 @@
       >
         {t.camera.uploadButton}
       </button>
-
-      {#if videoSourceType === 'camera'}
-        <button
-          class="screen-share-button"
-          onclick={startScreenShare}
-          disabled={isProcessing}
-          aria-label={t.camera.shareScreen}
-        >
-          {t.camera.shareScreen}
-        </button>
-      {:else}
-        <button
-          class="stop-share-button"
-          onclick={stopScreenShare}
-          disabled={isProcessing}
-          aria-label={t.camera.stopSharing}
-        >
-          {t.camera.stopSharing}
-        </button>
-      {/if}
     </div>
   </div>
 </div>
 
 <style>
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
   .camera-capture {
     width: 100%;
     max-width: 800px;
@@ -473,52 +537,47 @@
     display: block;
   }
 
-  .camera-tabs {
+  .camera-selector {
     position: absolute;
     top: 1rem;
     left: 50%;
     transform: translateX(-50%);
-    display: flex;
-    gap: 0.5rem;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.7);
     padding: 0.5rem;
     border-radius: 8px;
     backdrop-filter: blur(10px);
+    max-width: calc(100% - 2rem);
   }
 
-  .camera-tab {
-    padding: 0.5rem 1rem;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+  .camera-selector select {
+    padding: 0.5rem 2rem 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.9);
+    color: #2d3748;
+    border: 2px solid rgba(255, 255, 255, 0.5);
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    max-width: 200px;
+    min-width: 200px;
+    appearance: none;
+    background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%232d3748" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3e%3cpolyline points="6 9 12 15 18 9"%3e%3c/polyline%3e%3c/svg%3e');
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 1rem;
   }
 
-  .camera-tab:hover:not([aria-disabled="true"]) {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.5);
+  .camera-selector select:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 1);
+    border-color: rgba(255, 255, 255, 0.7);
   }
 
-  .camera-tab:focus {
+  .camera-selector select:focus {
     outline: 2px solid #667eea;
     outline-offset: 2px;
   }
 
-  .camera-tab.active {
-    background: rgba(255, 255, 255, 0.9);
-    color: #2d3748;
-    border-color: rgba(255, 255, 255, 0.9);
-  }
-
-  .camera-tab[aria-disabled="true"] {
+  .camera-selector select:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
@@ -611,14 +670,12 @@
 
   .button-group {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 0.75rem;
   }
 
   .capture-button,
-  .upload-button,
-  .screen-share-button,
-  .stop-share-button {
+  .upload-button {
     padding: 1rem;
     border: none;
     border-radius: 4px;
@@ -664,47 +721,9 @@
     cursor: not-allowed;
   }
 
-  .screen-share-button {
-    background: #4299e1;
-    color: white;
-  }
-
-  .screen-share-button:hover:not(:disabled) {
-    background: #3182ce;
-  }
-
-  .screen-share-button:active:not(:disabled) {
-    background: #2c5282;
-  }
-
-  .screen-share-button:disabled {
-    background: #cbd5e0;
-    cursor: not-allowed;
-  }
-
-  .stop-share-button {
-    background: #f56565;
-    color: white;
-  }
-
-  .stop-share-button:hover:not(:disabled) {
-    background: #e53e3e;
-  }
-
-  .stop-share-button:active:not(:disabled) {
-    background: #c53030;
-  }
-
-  .stop-share-button:disabled {
-    background: #cbd5e0;
-    cursor: not-allowed;
-  }
-
   @media (max-width: 640px) {
     .capture-button,
-    .upload-button,
-    .screen-share-button,
-    .stop-share-button {
+    .upload-button {
       font-size: 0.9rem;
       padding: 0.75rem;
     }
@@ -719,19 +738,16 @@
       padding: 0.3rem 0.6rem;
     }
 
-    .camera-tabs {
+    .camera-selector {
       top: 0.75rem;
       padding: 0.375rem;
-      gap: 0.375rem;
       max-width: calc(100% - 1.5rem);
-      flex-wrap: wrap;
-      justify-content: center;
     }
 
-    .camera-tab {
-      padding: 0.375rem 0.75rem;
+    .camera-selector select {
       font-size: 0.8rem;
-      max-width: 150px;
+      min-width: 150px;
+      padding: 0.375rem 1.75rem 0.375rem 0.75rem;
     }
   }
 </style>

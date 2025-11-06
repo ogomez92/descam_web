@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getApiKey, getGeminiApiKey, getMode, setMode, type AppMode, getOutputMode, getTTSRate, setTTSRate } from './lib/storage.svelte';
+  import { getApiKey, getGeminiApiKey, getMode, setMode, type AppMode } from './lib/storage.svelte';
   import { getTranslations } from './lib/i18n/store.svelte';
   import Onboarding from './lib/components/Onboarding.svelte';
   import CameraCapture from './lib/components/CameraCapture.svelte';
@@ -7,16 +7,11 @@
   import History from './lib/components/History.svelte';
   import Footer from './lib/components/Footer.svelte';
   import LanguageSelector from './lib/components/LanguageSelector.svelte';
-  import { TextToSpeech } from './lib/tts';
-  import { onDestroy } from 'svelte';
 
   let descriptions = $state<string[]>([]);
   let modeAnnouncementElement = $state<HTMLDivElement>();
-  let modeErrorElement = $state<HTMLDivElement>();
   let modeErrorMessage = $state('');
-  let tts: TextToSpeech | null = null;
-  let outputMode = $derived(getOutputMode());
-  let ttsRate = $derived(getTTSRate());
+  let showSettings = $state(false);
 
   function handleDescriptionComplete(description: string) {
     descriptions = [description, ...descriptions];
@@ -26,6 +21,7 @@
   let hasGeminiKey = $derived(!!getGeminiApiKey());
   let currentMode = $derived(getMode());
   let t = $derived(getTranslations());
+  let showOnboarding = $derived(!hasApiKey || showSettings);
 
   let pageTitle = $derived(
     currentMode === 'video' ? t.videoModeTitle : t.photoModeTitle
@@ -67,23 +63,13 @@
     }
   }
 
-  function handleStopTTS() {
-    if (tts) {
-      tts.cancel();
-    }
+  function openSettings() {
+    showSettings = true;
   }
 
-  function handleRateChange(event: Event) {
-    const target = event.target as HTMLInputElement;
-    const newRate = parseFloat(target.value);
-    setTTSRate(newRate);
+  function closeSettings() {
+    showSettings = false;
   }
-
-  onDestroy(() => {
-    if (tts) {
-      tts.cancel();
-    }
-  });
 </script>
 
 <svelte:head>
@@ -101,8 +87,8 @@
   {modeAnnouncement}
 </div>
 
-{#if !hasApiKey}
-  <Onboarding />
+{#if showOnboarding}
+  <Onboarding onComplete={closeSettings} />
 {:else}
   <main>
     <div class="container">
@@ -116,6 +102,13 @@
               aria-label={t.mode.switchModeAriaLabel}
             >
               {currentMode === 'photo' ? t.mode.switchToVideo : t.mode.switchToPhoto}
+            </button>
+            <button
+              class="settings-button"
+              onclick={openSettings}
+              aria-label={t.mode.configureApiKeysAriaLabel}
+            >
+              {t.mode.configureApiKeys}
             </button>
             <LanguageSelector />
           </div>
@@ -131,29 +124,7 @@
       {#if currentMode === 'photo'}
         <CameraCapture onDescriptionComplete={handleDescriptionComplete} />
         {#if descriptions.length > 0}
-          <fieldset class="outputs-fieldset">
-            <legend>{t.outputs.legend}</legend>
-            {#if outputMode === 'tts'}
-              <div class="outputs-controls">
-                <button class="stop-tts-button" onclick={handleStopTTS}>
-                  {t.outputs.stopTTS}
-                </button>
-                <div class="rate-control">
-                  <label for="tts-rate">{t.outputs.ttsRate}: {ttsRate.toFixed(1)}x</label>
-                  <input
-                    id="tts-rate"
-                    type="range"
-                    min="0.5"
-                    max="2.0"
-                    step="0.1"
-                    value={ttsRate}
-                    oninput={handleRateChange}
-                  />
-                </div>
-              </div>
-            {/if}
-            <History {descriptions} />
-          </fieldset>
+          <History {descriptions} />
         {/if}
       {:else}
         <VideoCapture />
@@ -216,7 +187,8 @@
     align-items: center;
   }
 
-  .mode-switch-button {
+  .mode-switch-button,
+  .settings-button {
     padding: 0.5rem 1rem;
     background: #4299e1;
     color: white;
@@ -229,16 +201,36 @@
     white-space: nowrap;
   }
 
-  .mode-switch-button:hover {
+  .mode-switch-button:hover,
+  .settings-button:hover {
     background: #3182ce;
   }
 
-  .mode-switch-button:active {
+  .mode-switch-button:active,
+  .settings-button:active {
     background: #2c5282;
   }
 
-  .mode-switch-button:focus {
+  .mode-switch-button:focus,
+  .settings-button:focus {
     outline: 3px solid #4299e1;
+    outline-offset: 2px;
+  }
+
+  .settings-button {
+    background: #48bb78;
+  }
+
+  .settings-button:hover {
+    background: #38a169;
+  }
+
+  .settings-button:active {
+    background: #2f855a;
+  }
+
+  .settings-button:focus {
+    outline: 3px solid #48bb78;
     outline-offset: 2px;
   }
 
@@ -247,67 +239,6 @@
     font-size: 2rem;
     color: #1a202c;
     font-weight: 700;
-  }
-
-  .outputs-fieldset {
-    margin-top: 2rem;
-    padding: 1.5rem;
-    border: 2px solid #e2e8f0;
-    border-radius: 8px;
-  }
-
-  .outputs-fieldset legend {
-    font-weight: 600;
-    font-size: 1.125rem;
-    padding: 0 0.5rem;
-    color: #2d3748;
-  }
-
-  .outputs-controls {
-    display: flex;
-    gap: 1.5rem;
-    margin-bottom: 1rem;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .stop-tts-button {
-    padding: 0.5rem 1rem;
-    background: #f56565;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  .stop-tts-button:hover {
-    background: #e53e3e;
-  }
-
-  .stop-tts-button:active {
-    background: #c53030;
-  }
-
-  .rate-control {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    flex: 1;
-    min-width: 200px;
-  }
-
-  .rate-control label {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #2d3748;
-  }
-
-  .rate-control input[type="range"] {
-    width: 100%;
-    cursor: pointer;
   }
 
   @media (max-width: 640px) {
@@ -329,26 +260,10 @@
       font-size: 1.5rem;
     }
 
-    .mode-switch-button {
+    .mode-switch-button,
+    .settings-button {
       font-size: 0.85rem;
       padding: 0.4rem 0.8rem;
-    }
-
-    .outputs-fieldset {
-      padding: 1rem;
-    }
-
-    .outputs-fieldset legend {
-      font-size: 1rem;
-    }
-
-    .outputs-controls {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .rate-control {
-      min-width: 100%;
     }
   }
 </style>

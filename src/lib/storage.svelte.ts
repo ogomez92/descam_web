@@ -3,6 +3,7 @@ const GEMINI_API_KEY_STORAGE_KEY = 'descam_gemini_api_key';
 const MODE_STORAGE_KEY = 'descam_mode';
 const OUTPUT_MODE_STORAGE_KEY = 'descam_output_mode';
 const TTS_RATE_STORAGE_KEY = 'descam_tts_rate';
+const CUSTOM_PROMPT_STORAGE_KEY = 'descam_custom_prompt';
 
 export type AppMode = 'photo' | 'video';
 export type OutputMode = 'aria' | 'tts';
@@ -121,6 +122,32 @@ function setTTSRateToStorage(rate: number): void {
   }
 }
 
+// Custom prompt functions
+function getCustomPromptFromStorage(): string | null {
+  try {
+    return localStorage.getItem(CUSTOM_PROMPT_STORAGE_KEY);
+  } catch (error) {
+    console.error('Error reading custom prompt from localStorage:', error);
+    return null;
+  }
+}
+
+function setCustomPromptToStorage(prompt: string): void {
+  try {
+    localStorage.setItem(CUSTOM_PROMPT_STORAGE_KEY, prompt);
+  } catch (error) {
+    console.error('Error saving custom prompt to localStorage:', error);
+  }
+}
+
+function removeCustomPromptFromStorage(): void {
+  try {
+    localStorage.removeItem(CUSTOM_PROMPT_STORAGE_KEY);
+  } catch (error) {
+    console.error('Error removing custom prompt from localStorage:', error);
+  }
+}
+
 // Svelte 5 reactive state
 let apiKey = $state<string | null>(getApiKeyFromStorage());
 let geminiApiKey = $state<string | null>(getGeminiApiKeyFromStorage());
@@ -188,4 +215,17 @@ export function setTTSRate(newRate: number): void {
   const clampedRate = Math.min(Math.max(newRate, 0.5), 2.0);
   ttsRate = clampedRate;
   setTTSRateToStorage(clampedRate);
+}
+
+// Custom prompt exports
+export function getCustomPrompt(): string | null {
+  return getCustomPromptFromStorage();
+}
+
+export function setCustomPrompt(prompt: string): void {
+  setCustomPromptToStorage(prompt);
+}
+
+export function removeCustomPrompt(): void {
+  removeCustomPromptFromStorage();
 }

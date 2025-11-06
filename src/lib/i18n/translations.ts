@@ -14,6 +14,8 @@ export interface Translations {
     currentModeVideo: string;
     switchModeAriaLabel: string;
     geminiKeyRequiredForVideo: string;
+    configureApiKeys: string;
+    configureApiKeysAriaLabel: string;
   };
   onboarding: {
     title: string;
@@ -49,6 +51,7 @@ export interface Translations {
     stopSharing: string;
     screenShare: string;
     errorScreenCapture: string;
+    countdown: string;
   };
   outputMode: {
     label: string;
@@ -113,6 +116,8 @@ export const translations: Record<Language, Translations> = {
       currentModeVideo: 'Currently in Video Mode',
       switchModeAriaLabel: 'Switch between photo and video modes',
       geminiKeyRequiredForVideo: 'A Gemini API key is required to use video mode. Please add your Gemini API key in the settings.',
+      configureApiKeys: 'Configure API Keys',
+      configureApiKeysAriaLabel: 'Open settings to configure API keys',
     },
     onboarding: {
       title: 'Welcome to Descam',
@@ -148,6 +153,7 @@ export const translations: Record<Language, Translations> = {
       stopSharing: 'Stop Sharing',
       screenShare: 'Screen Share',
       errorScreenCapture: 'Failed to capture screen. Please try again.',
+      countdown: '{count}',
     },
     outputMode: {
       label: 'Output Mode',
@@ -210,6 +216,8 @@ export const translations: Record<Language, Translations> = {
       currentModeVideo: 'Actualmente en Modo Video',
       switchModeAriaLabel: 'Cambiar entre modos foto y video',
       geminiKeyRequiredForVideo: 'Se requiere una clave API de Gemini para usar el modo video. Por favor agrega tu clave API de Gemini en la configuración.',
+      configureApiKeys: 'Configurar Claves API',
+      configureApiKeysAriaLabel: 'Abrir configuración para configurar claves API',
     },
     onboarding: {
       title: 'Bienvenido a Descam',
@@ -245,6 +253,7 @@ export const translations: Record<Language, Translations> = {
       stopSharing: 'Detener Compartir',
       screenShare: 'Compartir Pantalla',
       errorScreenCapture: 'Error al capturar pantalla. Por favor intenta de nuevo.',
+      countdown: '{count}',
     },
     outputMode: {
       label: 'Modo de Salida',
@@ -307,6 +316,8 @@ export const translations: Record<Language, Translations> = {
       currentModeVideo: 'Derzeit im Videomodus',
       switchModeAriaLabel: 'Zwischen Foto- und Videomodus wechseln',
       geminiKeyRequiredForVideo: 'Für den Videomodus ist ein Gemini API-Schlüssel erforderlich. Bitte fügen Sie Ihren Gemini API-Schlüssel in den Einstellungen hinzu.',
+      configureApiKeys: 'API-Schlüssel Konfigurieren',
+      configureApiKeysAriaLabel: 'Einstellungen öffnen um API-Schlüssel zu konfigurieren',
     },
     onboarding: {
       title: 'Willkommen bei Descam',
@@ -342,6 +353,7 @@ export const translations: Record<Language, Translations> = {
       stopSharing: 'Teilen Stoppen',
       screenShare: 'Bildschirmfreigabe',
       errorScreenCapture: 'Bildschirmaufnahme fehlgeschlagen. Bitte versuchen Sie es erneut.',
+      countdown: '{count}',
     },
     outputMode: {
       label: 'Ausgabemodus',
@@ -404,6 +416,8 @@ export const translations: Record<Language, Translations> = {
       currentModeVideo: 'Actuellement en Mode Vidéo',
       switchModeAriaLabel: 'Basculer entre les modes photo et vidéo',
       geminiKeyRequiredForVideo: 'Une clé API Gemini est requise pour utiliser le mode vidéo. Veuillez ajouter votre clé API Gemini dans les paramètres.',
+      configureApiKeys: 'Configurer les Clés API',
+      configureApiKeysAriaLabel: 'Ouvrir les paramètres pour configurer les clés API',
     },
     onboarding: {
       title: 'Bienvenue sur Descam',
@@ -439,6 +453,7 @@ export const translations: Record<Language, Translations> = {
       stopSharing: 'Arrêter le Partage',
       screenShare: 'Partage d\'Écran',
       errorScreenCapture: 'Échec de la capture d\'écran. Veuillez réessayer.',
+      countdown: '{count}',
     },
     outputMode: {
       label: 'Mode de Sortie',
@@ -501,6 +516,8 @@ export const translations: Record<Language, Translations> = {
       currentModeVideo: 'Attualmente in Modalità Video',
       switchModeAriaLabel: 'Passa tra le modalità foto e video',
       geminiKeyRequiredForVideo: 'È necessaria una chiave API Gemini per utilizzare la modalità video. Aggiungi la tua chiave API Gemini nelle impostazioni.',
+      configureApiKeys: 'Configura Chiavi API',
+      configureApiKeysAriaLabel: 'Apri impostazioni per configurare le chiavi API',
     },
     onboarding: {
       title: 'Benvenuto su Descam',
@@ -536,6 +553,7 @@ export const translations: Record<Language, Translations> = {
       stopSharing: 'Interrompi Condivisione',
       screenShare: 'Condivisione Schermo',
       errorScreenCapture: 'Impossibile catturare lo schermo. Riprova.',
+      countdown: '{count}',
     },
     outputMode: {
       label: 'Modalità di Output',

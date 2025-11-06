@@ -1,12 +1,31 @@
 <script lang="ts">
-  import { setApiKey, setGeminiApiKey } from '../storage.svelte';
+  import { setApiKey, setGeminiApiKey, getApiKey, getGeminiApiKey } from '../storage.svelte';
   import { getTranslations } from '../i18n/store.svelte';
   import LanguageSelector from './LanguageSelector.svelte';
+  import { onMount } from 'svelte';
+
+  interface Props {
+    onComplete?: () => void;
+  }
+
+  let { onComplete }: Props = $props();
 
   let openaiApiKeyInput = $state('');
   let geminiApiKeyInput = $state('');
   let errorMessage = $state('');
   let t = $derived(getTranslations());
+
+  // Load existing API keys on mount
+  onMount(() => {
+    const existingOpenAI = getApiKey();
+    const existingGemini = getGeminiApiKey();
+    if (existingOpenAI) {
+      openaiApiKeyInput = existingOpenAI;
+    }
+    if (existingGemini) {
+      geminiApiKeyInput = existingGemini;
+    }
+  });
 
   function handleSave() {
     const hasOpenAI = openaiApiKeyInput.trim().length > 0;
@@ -24,6 +43,11 @@
     }
     if (hasGemini) {
       setGeminiApiKey(geminiApiKeyInput.trim());
+    }
+
+    // Call onComplete callback if provided
+    if (onComplete) {
+      onComplete();
     }
   }
 
