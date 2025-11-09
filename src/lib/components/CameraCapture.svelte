@@ -1,13 +1,14 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { getCameraStream, captureFrame, stopStream, enumerateCameras, getScreenStream, type CameraDevice } from '../camera';
-  import { describeImage } from '../openai';
-  import { describeImageWithGemini } from '../gemini';
-  import { getApiKey, getGeminiApiKey, getOutputMode, getTTSRate, getCustomPrompt, setCustomPrompt, removeCustomPrompt } from '../storage.svelte';
+  import { describeImage, type ImageDescriptionResult } from '../openai';
+  import { describeImageWithGemini, type GeminiImageDescriptionResult } from '../gemini';
+  import { getApiKey, getGeminiApiKey, getOutputMode, getTTSRate, getTTSVoice, getCustomPrompt, setCustomPrompt, removeCustomPrompt } from '../storage.svelte';
   import { getTranslations, getCurrentLanguage } from '../i18n/store.svelte';
-  import { setCurrentCamera } from '../cameraStore.svelte';
+  import { setCurrentCamera, setScreenSharingActive } from '../cameraStore.svelte';
   import { TextToSpeech, getTTSLanguage } from '../tts';
   import OutputModeSelector from './OutputModeSelector.svelte';
+  import CameraSourceDropdown, { type CameraSourceOption } from './CameraSourceDropdown.svelte';
 
   interface Props {
     onDescriptionComplete: (description: string) => void;
@@ -34,43 +35,21 @@
   let countdownMessage = $state('');
   let countdownElement = $state<HTMLDivElement>();
   let selectedSourceId = $state<string>(''); // deviceId or 'screen-share'
+  type DescriptionResult = ImageDescriptionResult | GeminiImageDescriptionResult;
+  let cameraOptions = $derived.by(() => {
+    const options: CameraSourceOption[] = availableCameras.map(camera => ({
+      id: camera.deviceId,
+      label: camera.label,
+      type: 'camera',
+    }));
 
-  // Load saved custom prompt on initialization
-  $effect(() => {
-    if (!isInitialized) {
-      const savedPrompt = getCustomPrompt();
-      if (savedPrompt) {
-        customPrompt = savedPrompt;
-        previousDefaultPrompt = savedPrompt;
-      } else {
-        customPrompt = t.prompt.defaultPrompt;
-        previousDefaultPrompt = t.prompt.defaultPrompt;
-      }
-      isInitialized = true;
-    }
-  });
+    options.push({
+      id: 'screen-share',
+      label: t.camera.screenShare,
+      type: 'screen',
+    });
 
-  // Update prompt when language changes, but only if user hasn't customized it
-  $effect(() => {
-    const currentDefault = t.prompt.defaultPrompt;
-
-    // Only run after initialization
-    if (!isInitialized) return;
-
-    // If prompt matches the previous default (not customized), update to new default
-    if (customPrompt === previousDefaultPrompt) {
-      customPrompt = currentDefault;
-      previousDefaultPrompt = currentDefault;
-      // Clear saved prompt since we're using default
-      removeCustomPrompt();
-    }
-  });
-
-  // Save custom prompt whenever it changes (but only if different from default)
-  $effect(() => {
-    if (isInitialized && customPrompt !== t.prompt.defaultPrompt) {
-      setCustomPrompt(customPrompt);
-    }
+    return options;
   });
 
   async function startCamera(deviceId?: string) {
@@ -91,7 +70,14 @@
         const currentCamera = availableCameras.find(cam => cam.deviceId === deviceId) || availableCameras[selectedCameraIndex];
         if (currentCamera) {
           setCurrentCamera(currentCamera);
+          if (deviceId) {
+            selectedSourceId = deviceId;
+          } else {
+            selectedSourceId = currentCamera.deviceId;
+          }
         }
+        videoSourceType = 'camera';
+        setScreenSharingActive(false);
       }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : t.camera.errorGeneric;
@@ -108,32 +94,26 @@
       }
       isCameraReady = false;
       setCurrentCamera(null); // Clear camera on error
+      setScreenSharingActive(false);
     }
   }
 
-  async function handleSourceChange(event: Event) {
-    const target = event.target as HTMLSelectElement;
-    const sourceId = target.value;
+  async function handleSourceSelect(sourceId: string) {
     selectedSourceId = sourceId;
 
     if (sourceId === 'screen-share') {
       await startScreenShare();
-    } else {
-      // If switching from screen share back to camera
-      if (videoSourceType === 'screen') {
-        if (stream) {
-          stopStream(stream);
-          stream = null;
-        }
-        videoSourceType = 'camera';
-      }
+      return;
+    }
 
-      // Find the camera by deviceId
-      const cameraIndex = availableCameras.findIndex(cam => cam.deviceId === sourceId);
-      if (cameraIndex >= 0) {
-        selectedCameraIndex = cameraIndex;
-        await startCamera(sourceId);
-      }
+    if (videoSourceType === 'screen') {
+      stopScreenShare({ resumeDefaultCamera: false });
+    }
+
+    const cameraIndex = availableCameras.findIndex(cam => cam.deviceId === sourceId);
+    if (cameraIndex >= 0) {
+      selectedCameraIndex = cameraIndex;
+      await startCamera(sourceId);
     }
   }
 
@@ -144,7 +124,19 @@
     }
   }
 
-  onMount(async () => {
+  onMount(async function() {
+    // Initialize prompt first
+    const savedPrompt = getCustomPrompt();
+    if (savedPrompt) {
+      customPrompt = savedPrompt;
+      previousDefaultPrompt = savedPrompt;
+    } else {
+      customPrompt = t.prompt.defaultPrompt;
+      previousDefaultPrompt = t.prompt.defaultPrompt;
+    }
+    isInitialized = true;
+
+    // Then initialize camera
     // First, get a temporary stream to trigger permission prompt and populate device labels
     try {
       const tempStream = await getCameraStream();
@@ -178,6 +170,7 @@
       stopStream(stream);
     }
     setCurrentCamera(null); // Clear camera state on unmount
+    setScreenSharingActive(false);
 
     // Cleanup TTS
     if (tts) {
@@ -201,7 +194,8 @@
       }
       const lang = getTTSLanguage(getCurrentLanguage());
       const rate = getTTSRate();
-      tts.speak(message, { lang, rate });
+      const voiceURI = getTTSVoice();
+      tts.speak(message, { lang, rate, voiceURI: voiceURI || undefined });
     }
   }
 
@@ -236,11 +230,15 @@
       const prompt = customPrompt.trim() || t.prompt.defaultPrompt;
 
       // Use OpenAI if available, otherwise use Gemini
-      let result;
+      let result: DescriptionResult | null = null;
       if (openaiKey) {
         result = await describeImage(openaiKey, imageDataUrl, prompt);
       } else if (geminiKey) {
         result = await describeImageWithGemini(geminiKey, imageDataUrl, prompt);
+      }
+
+      if (!result) {
+        throw new Error(t.camera.errorGeneric);
       }
 
       if (result.error) {
@@ -291,11 +289,15 @@
       const prompt = customPrompt.trim() || t.prompt.defaultPrompt;
 
       // Use OpenAI if available, otherwise use Gemini
-      let result;
+      let result: DescriptionResult | null = null;
       if (openaiKey) {
         result = await describeImage(openaiKey, imageDataUrl, prompt);
       } else if (geminiKey) {
         result = await describeImageWithGemini(geminiKey, imageDataUrl, prompt);
+      }
+
+      if (!result) {
+        throw new Error(t.camera.errorGeneric);
       }
 
       if (result.error) {
@@ -325,7 +327,8 @@
       }
       const lang = getTTSLanguage(getCurrentLanguage());
       const rate = getTTSRate();
-      tts.speak(description, { lang, rate });
+      const voiceURI = getTTSVoice();
+      tts.speak(description, { lang, rate, voiceURI: voiceURI || undefined });
     }
   }
 
@@ -345,6 +348,8 @@
         isCameraReady = true;
         videoSourceType = 'screen';
         selectedSourceId = 'screen-share';
+        setCurrentCamera(null);
+        setScreenSharingActive(true);
 
         // Listen for when user stops sharing via browser UI
         stream.getVideoTracks()[0].onended = () => {
@@ -354,22 +359,30 @@
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : t.camera.errorScreenCapture;
       isCameraReady = false;
+      setScreenSharingActive(false);
     }
   }
 
-  function stopScreenShare() {
-    if (stream && videoSourceType === 'screen') {
+  function stopScreenShare(options?: { resumeDefaultCamera?: boolean }) {
+    const resumeDefaultCamera = options?.resumeDefaultCamera ?? true;
+
+    if (videoSourceType === 'screen' && stream) {
       stopStream(stream);
       stream = null;
-      isCameraReady = false;
-      videoSourceType = 'camera';
+    }
 
-      // Switch back to first camera
-      if (availableCameras.length > 0) {
-        selectedCameraIndex = 0;
-        selectedSourceId = availableCameras[0].deviceId;
-        startCamera(availableCameras[0].deviceId);
-      }
+    if (videoSourceType === 'screen') {
+      videoSourceType = 'camera';
+    }
+
+    isCameraReady = false;
+    setScreenSharingActive(false);
+
+    if (resumeDefaultCamera && availableCameras.length > 0) {
+      selectedCameraIndex = 0;
+      const fallbackId = availableCameras[0].deviceId;
+      selectedSourceId = fallbackId;
+      startCamera(fallbackId);
     }
   }
 
@@ -407,25 +420,16 @@
     <video bind:this={videoElement} autoplay playsinline muted aria-label="Camera preview">
       <track kind="captions" />
     </video>
-    {#if availableCameras.length >= 1}
-      <div class="camera-selector">
-        <label for="camera-select" class="sr-only">{t.camera.cameraSelectionAriaLabel}</label>
-        <select
-          id="camera-select"
-          value={selectedSourceId}
-          onchange={handleSourceChange}
+    {#if cameraOptions.length > 0}
+      <div class="source-selector">
+        <CameraSourceDropdown
+          options={cameraOptions}
+          selectedId={selectedSourceId}
+          ariaLabel={t.camera.cameraSelectionAriaLabel}
+          placeholder={t.camera.cameraSelectionAriaLabel}
+          onSelect={handleSourceSelect}
           disabled={isProcessing}
-          aria-label={t.camera.cameraSelectionAriaLabel}
-        >
-          {#each availableCameras as camera}
-            <option value={camera.deviceId}>
-              {camera.label}
-            </option>
-          {/each}
-          <option value="screen-share">
-            {t.camera.screenShare}
-          </option>
-        </select>
+        />
       </div>
     {/if}
   </div>
@@ -537,7 +541,7 @@
     display: block;
   }
 
-  .camera-selector {
+  .source-selector {
     position: absolute;
     top: 1rem;
     left: 50%;
@@ -547,39 +551,19 @@
     border-radius: 8px;
     backdrop-filter: blur(10px);
     max-width: calc(100% - 2rem);
+    z-index: 2;
   }
 
-  .camera-selector select {
-    padding: 0.5rem 2rem 0.5rem 1rem;
-    background: rgba(255, 255, 255, 0.9);
-    color: #2d3748;
-    border: 2px solid rgba(255, 255, 255, 0.5);
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    min-width: 200px;
-    appearance: none;
-    background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%232d3748" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3e%3cpolyline points="6 9 12 15 18 9"%3e%3c/polyline%3e%3c/svg%3e');
-    background-repeat: no-repeat;
-    background-position: right 0.5rem center;
-    background-size: 1rem;
+  .source-selector :global(.source-button) {
+    background: rgba(247, 250, 252, 0.95);
   }
 
-  .camera-selector select:hover:not(:disabled) {
-    background-color: rgba(255, 255, 255, 1);
-    border-color: rgba(255, 255, 255, 0.7);
+  .source-selector :global(.dropdown-panel) {
+    right: auto;
   }
 
-  .camera-selector select:focus {
-    outline: 2px solid #667eea;
-    outline-offset: 2px;
-  }
-
-  .camera-selector select:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .source-selector :global(.dropdown-option.active) {
+    background: #5a67d8;
   }
 
   .error-message {
@@ -738,16 +722,10 @@
       padding: 0.3rem 0.6rem;
     }
 
-    .camera-selector {
+    .source-selector {
       top: 0.75rem;
       padding: 0.375rem;
       max-width: calc(100% - 1.5rem);
-    }
-
-    .camera-selector select {
-      font-size: 0.8rem;
-      min-width: 150px;
-      padding: 0.375rem 1.75rem 0.375rem 0.75rem;
     }
   }
 </style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getOutputMode, setOutputMode, type OutputMode, getTTSRate, setTTSRate } from '../storage.svelte';
+  import { getOutputMode, setOutputMode, type OutputMode, getTTSRate, setTTSRate, getTTSVoice, setTTSVoice } from '../storage.svelte';
   import { getTranslations, getCurrentLanguage } from '../i18n/store.svelte';
   import { isTTSSupported, TextToSpeech } from '../tts';
 
@@ -13,26 +13,53 @@
   let currentMode = $derived(getOutputMode());
   let ttsSupported = $state(isTTSSupported());
   let ttsRate = $derived(getTTSRate());
+  let ttsVoice = $derived(getTTSVoice());
   let isSpeaking = $state(false);
+  let availableVoices = $state<SpeechSynthesisVoice[]>([]);
 
-  // Monitor TTS speaking state
+  // Load available voices on mount only (not in reactive effect)
+  import { onMount, onDestroy } from 'svelte';
+
+  let checkSpeakingInterval: number | null = null;
+
+  onMount(() => {
+    if (ttsSupported && typeof window !== 'undefined' && window.speechSynthesis) {
+      // Load voices
+      availableVoices = window.speechSynthesis.getVoices();
+
+      // Listen for async voice loading
+      if (availableVoices.length === 0) {
+        const voicesChangedHandler = () => {
+          availableVoices = window.speechSynthesis.getVoices();
+        };
+        window.speechSynthesis.addEventListener('voiceschanged', voicesChangedHandler);
+      }
+    }
+  });
+
+  // Watch for TTS state changes
   $effect(() => {
-    if (tts) {
-      // Check if speech synthesis is speaking
-      const checkSpeaking = () => {
-        isSpeaking = window.speechSynthesis?.speaking || false;
-      };
-
-      // Check immediately
-      checkSpeaking();
-
-      // Set up interval to check speaking state
-      const interval = setInterval(checkSpeaking, 100);
-
-      return () => clearInterval(interval);
-    } else {
+    if (tts && !checkSpeakingInterval) {
+      // Start checking speaking state
+      checkSpeakingInterval = window.setInterval(() => {
+        const speaking = window.speechSynthesis?.speaking || false;
+        if (isSpeaking !== speaking) {
+          isSpeaking = speaking;
+        }
+      }, 250);
+    } else if (!tts && checkSpeakingInterval) {
+      // Stop checking
+      clearInterval(checkSpeakingInterval);
+      checkSpeakingInterval = null;
       isSpeaking = false;
     }
+
+    return () => {
+      if (checkSpeakingInterval) {
+        clearInterval(checkSpeakingInterval);
+        checkSpeakingInterval = null;
+      }
+    };
   });
 
   function handleModeChange(event: Event) {
@@ -51,6 +78,11 @@
     const target = event.target as HTMLInputElement;
     const newRate = parseFloat(target.value);
     setTTSRate(newRate);
+  }
+
+  function handleVoiceChange(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    setTTSVoice(target.value);
   }
 </script>
 
@@ -96,6 +128,21 @@
         <button class="stop-tts-button" onclick={handleStopTTS} disabled={!isSpeaking}>
           {t.outputs.stopTTS}
         </button>
+        <div class="voice-control">
+          <label for="tts-voice">{t.outputs.ttsVoice || 'Voice'}</label>
+          <select
+            id="tts-voice"
+            value={ttsVoice || ''}
+            onchange={handleVoiceChange}
+          >
+            <option value="">{t.outputs.ttsVoiceDefault || 'Default'}</option>
+            {#each availableVoices as voice (voice.voiceURI)}
+              <option value={voice.voiceURI}>
+                {voice.name} ({voice.lang})
+              </option>
+            {/each}
+          </select>
+        </div>
         <div class="rate-control">
           <label for="tts-rate">{t.outputs.ttsRate}: {ttsRate.toFixed(1)}x</label>
           <input
@@ -222,6 +269,39 @@
     opacity: 0.6;
   }
 
+  .voice-control {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .voice-control label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #2d3748;
+  }
+
+  .voice-control select {
+    padding: 0.5rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .voice-control select:hover {
+    border-color: #cbd5e0;
+  }
+
+  .voice-control select:focus {
+    outline: none;
+    border-color: #4299e1;
+  }
+
   .rate-control {
     display: flex;
     flex-direction: column;
@@ -265,6 +345,10 @@
     .tts-controls {
       flex-direction: column;
       align-items: stretch;
+    }
+
+    .voice-control {
+      min-width: 100%;
     }
 
     .rate-control {

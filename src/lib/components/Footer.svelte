@@ -1,15 +1,18 @@
 <script lang="ts">
   import { getTranslations, getCurrentLanguage, getWebsiteUrl } from '../i18n/store.svelte';
-  import { getApiKey } from '../storage.svelte';
+  import { getApiKey, getGeminiApiKey } from '../storage.svelte';
   import { getCameraState } from '../cameraStore.svelte';
 
   let t = $derived(getTranslations());
   let cameraState = $derived(getCameraState());
   let hasApiKey = $derived(!!getApiKey());
+  let hasGeminiKey = $derived(!!getGeminiApiKey());
   let websiteUrl = $derived(getWebsiteUrl(getCurrentLanguage()));
 
   let cameraStatusText = $derived(
-    cameraState.isActive && cameraState.currentCamera
+    cameraState.isScreenSharing
+      ? t.footer.screenSharingActive
+      : cameraState.isActive && cameraState.currentCamera
       ? `${t.footer.cameraActive} ${cameraState.currentCamera.label}`
       : t.footer.cameraInactive
   );
@@ -18,8 +21,16 @@
     hasApiKey ? t.footer.apiKeyFound : t.footer.apiKeyNotFound
   );
 
+  let geminiStatusText = $derived(
+    hasGeminiKey ? t.footer.geminiKeyFound : t.footer.geminiKeyNotFound
+  );
+
   let cameraStatusClass = $derived(
-    cameraState.isActive ? 'status-ok' : 'status-unknown'
+    cameraState.isScreenSharing
+      ? 'status-sharing'
+      : cameraState.isActive
+        ? 'status-ok'
+        : 'status-unknown'
   );
 </script>
 
@@ -28,6 +39,9 @@
     <div class="status-indicators">
       <span class="status-item" class:status-ok={hasApiKey} class:status-error={!hasApiKey}>
         {apiStatusText}
+      </span>
+      <span class="status-item" class:status-ok={hasGeminiKey} class:status-error={!hasGeminiKey}>
+        {geminiStatusText}
       </span>
       <span class="status-item {cameraStatusClass}">
         {cameraStatusText}
@@ -89,6 +103,11 @@
 
   .status-item.status-unknown {
     background: #ed8936;
+    color: white;
+  }
+
+  .status-item.status-sharing {
+    background: #3182ce;
     color: white;
   }
 

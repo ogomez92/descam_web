@@ -26,6 +26,7 @@ export class TextToSpeech {
     pitch?: number;
     volume?: number;
     lang?: string;
+    voiceURI?: string;
   }): void {
     // Cancel any ongoing speech
     this.cancel();
@@ -41,6 +42,15 @@ export class TextToSpeech {
     utterance.pitch = options?.pitch ?? 1.0;
     utterance.volume = options?.volume ?? 1.0;
     utterance.lang = options?.lang ?? 'en-US';
+
+    // Set voice if voiceURI is provided
+    if (options?.voiceURI) {
+      const voices = this.getVoices();
+      const selectedVoice = voices.find(voice => voice.voiceURI === options.voiceURI);
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+    }
 
     // Event handlers
     utterance.onstart = () => {

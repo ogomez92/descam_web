@@ -10,7 +10,14 @@
       "WebFetch(domain:ai.google.dev)",
       "WebFetch(domain:github.com)",
       "Bash(timeout /t 3)",
-      "Bash(nul)"
+      "Bash(nul)",
+      "WebFetch(domain:discuss.ai.google.dev)",
+      "WebFetch(domain:colab.sandbox.google.com)",
+      "WebFetch(domain:colab.research.google.com)",
+      "WebFetch(domain:aistudio.google.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(npm install:*)",
+      "Bash(npm run check:*)"
     ],
     "deny": [],
     "ask": []

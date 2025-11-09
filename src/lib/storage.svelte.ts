@@ -3,6 +3,7 @@ const GEMINI_API_KEY_STORAGE_KEY = 'descam_gemini_api_key';
 const MODE_STORAGE_KEY = 'descam_mode';
 const OUTPUT_MODE_STORAGE_KEY = 'descam_output_mode';
 const TTS_RATE_STORAGE_KEY = 'descam_tts_rate';
+const TTS_VOICE_STORAGE_KEY = 'descam_tts_voice';
 const CUSTOM_PROMPT_STORAGE_KEY = 'descam_custom_prompt';
 
 export type AppMode = 'photo' | 'video';
@@ -122,6 +123,24 @@ function setTTSRateToStorage(rate: number): void {
   }
 }
 
+// TTS voice functions
+function getTTSVoiceFromStorage(): string | null {
+  try {
+    return localStorage.getItem(TTS_VOICE_STORAGE_KEY);
+  } catch (error) {
+    console.error('Error reading TTS voice from localStorage:', error);
+    return null;
+  }
+}
+
+function setTTSVoiceToStorage(voiceURI: string): void {
+  try {
+    localStorage.setItem(TTS_VOICE_STORAGE_KEY, voiceURI);
+  } catch (error) {
+    console.error('Error saving TTS voice to localStorage:', error);
+  }
+}
+
 // Custom prompt functions
 function getCustomPromptFromStorage(): string | null {
   try {
@@ -154,6 +173,7 @@ let geminiApiKey = $state<string | null>(getGeminiApiKeyFromStorage());
 let mode = $state<AppMode>(getModeFromStorage());
 let outputMode = $state<OutputMode>(getOutputModeFromStorage());
 let ttsRate = $state<number>(getTTSRateFromStorage());
+let ttsVoice = $state<string | null>(getTTSVoiceFromStorage());
 
 // OpenAI API Key exports
 export function getApiKey(): string | null {
@@ -215,6 +235,16 @@ export function setTTSRate(newRate: number): void {
   const clampedRate = Math.min(Math.max(newRate, 0.5), 2.0);
   ttsRate = clampedRate;
   setTTSRateToStorage(clampedRate);
+}
+
+// TTS voice exports
+export function getTTSVoice(): string | null {
+  return ttsVoice;
+}
+
+export function setTTSVoice(voiceURI: string): void {
+  ttsVoice = voiceURI;
+  setTTSVoiceToStorage(voiceURI);
 }
 
 // Custom prompt exports

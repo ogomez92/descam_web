@@ -2,6 +2,8 @@
  * Gemini Live API integration for real-time video streaming
  */
 
+import { GoogleGenAI, Modality } from '@google/genai';
+
 export interface GeminiConfig {
   apiKey: string;
   systemInstruction?: string;
@@ -13,17 +15,24 @@ export interface VideoFrame {
   data: string; // base64 encoded
 }
 
+export interface VideoChunk {
+  mimeType: string;
+  data: string; // base64 encoded video chunk
+}
+
 export type MessageHandler = (description: string) => void;
 export type ErrorHandler = (error: string) => void;
 export type StatusHandler = (status: 'connecting' | 'connected' | 'disconnected') => void;
 
 export class GeminiLiveSession {
-  private ws: WebSocket | null = null;
   private config: GeminiConfig;
   private onMessage: MessageHandler;
   private onError: ErrorHandler;
   private onStatus: StatusHandler;
-  private isConnecting = false;
+  private session: any = null;
+  private ai: GoogleGenAI;
+  private accumulatedText: string = '';
+  private textAccumulationTimer: number | null = null;
 
   constructor(
     config: GeminiConfig,
@@ -32,71 +41,83 @@ export class GeminiLiveSession {
     onStatus: StatusHandler
   ) {
     this.config = {
-      model: 'gemini-2.5-flash-preview-09-2025',
-      systemInstruction: 'Describe what you see in the video in detail, including objects, people, actions, text, and spatial positioning.',
+      model: 'gemini-2.0-flash-live-001',
+      systemInstruction: 'You give short concise descriptions of the video you are given. Listen to the user\'s instructions and focus on what they are asking.',
       ...config
     };
     this.onMessage = onMessage;
     this.onError = onError;
     this.onStatus = onStatus;
+
+    // Initialize the Google GenAI client
+    this.ai = new GoogleGenAI({ apiKey: this.config.apiKey });
   }
 
   /**
-   * Connect to the Gemini Live API WebSocket
+   * Connect to the Gemini Live API using SDK
    */
   async connect(): Promise<void> {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    console.log('=== CONNECT METHOD CALLED ===');
+    console.log('Session exists?', !!this.session);
+
+    if (this.session) {
       console.log('Already connected');
       return;
     }
 
-    if (this.isConnecting) {
-      console.log('Connection already in progress');
-      return;
-    }
-
-    this.isConnecting = true;
-    this.onStatus('connecting');
-
     try {
-      // Construct WebSocket URL with API key
-      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${this.config.apiKey}`;
+      console.log('Calling onStatus with "connecting"');
+      this.onStatus('connecting');
 
-      this.ws = new WebSocket(wsUrl);
-
-      this.ws.onopen = () => {
-        console.log('WebSocket connected');
-        this.isConnecting = false;
-        this.onStatus('connected');
-
-        // Send initial setup configuration
-        this.sendSetup();
+      const config: any = {
+        responseModalities: [Modality.TEXT]
       };
 
-      this.ws.onmessage = (event) => {
-        try {
-          const response = JSON.parse(event.data);
-          this.handleServerMessage(response);
-        } catch (err) {
-          console.error('Failed to parse server message:', err);
+      // Add system instruction to config if provided
+      if (this.config.systemInstruction) {
+        console.log('Adding system instruction:', this.config.systemInstruction);
+        config.systemInstruction = {
+          parts: [{ text: this.config.systemInstruction }]
+        };
+      }
+
+      console.log('Calling ai.live.connect with model:', this.config.model);
+      console.log('Config:', config);
+
+      this.session = await this.ai.live.connect({
+        model: this.config.model!,
+        config: config,
+        callbacks: {
+          onopen: () => {
+            console.log('=== ONOPEN CALLBACK TRIGGERED ===');
+            this.onStatus('connected');
+          },
+          onmessage: (message: any) => {
+            console.log('=== ONMESSAGE CALLBACK TRIGGERED ===');
+            this.handleServerMessage(message);
+          },
+          onerror: (e: any) => {
+            console.error('=== ONERROR CALLBACK TRIGGERED ===');
+            console.error('Error:', e);
+            this.onError(e.message || 'Connection error');
+            this.onStatus('disconnected');
+          },
+          onclose: (e: any) => {
+            console.log('=== ONCLOSE CALLBACK TRIGGERED ===');
+            console.log('Close reason:', e.reason);
+            this.onStatus('disconnected');
+            this.session = null;
+          }
         }
-      };
+      });
 
-      this.ws.onerror = (event) => {
-        console.error('WebSocket error:', event);
-        this.isConnecting = false;
-        this.onError('WebSocket connection error');
-        this.onStatus('disconnected');
-      };
-
-      this.ws.onclose = () => {
-        console.log('WebSocket closed');
-        this.isConnecting = false;
-        this.onStatus('disconnected');
-      };
-
+      console.log('=== SESSION CREATED ===');
+      console.log('Session object:', this.session);
+      console.log('Has sendClientContent?', typeof this.session?.sendClientContent);
+      console.log('Has sendRealtimeInput?', typeof this.session?.sendRealtimeInput);
     } catch (err) {
-      this.isConnecting = false;
+      console.error('=== CONNECT ERROR ===');
+      console.error('Error:', err);
       this.onError(`Failed to connect: ${err instanceof Error ? err.message : 'Unknown error'}`);
       this.onStatus('disconnected');
       throw err;
@@ -104,117 +125,295 @@ export class GeminiLiveSession {
   }
 
   /**
-   * Send initial setup configuration
-   */
-  private sendSetup(): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      return;
-    }
-
-    const setupMessage = {
-      setup: {
-        model: `models/${this.config.model}`,
-        generation_config: {
-          response_modalities: ['TEXT']
-        }
-      }
-    };
-
-    // Add system instruction if provided
-    if (this.config.systemInstruction) {
-      setupMessage.setup['system_instruction'] = {
-        parts: [
-          {
-            text: this.config.systemInstruction
-          }
-        ]
-      };
-    }
-
-    this.ws.send(JSON.stringify(setupMessage));
-  }
-
-  /**
    * Handle messages from the server
    */
-  private handleServerMessage(response: any): void {
-    // Handle setup complete
-    if (response.setupComplete) {
-      console.log('Setup complete');
-      return;
+  private handleServerMessage(message: any): void {
+    console.log('Raw message received:', message);
+
+    // Use the built-in text getter from LiveServerMessage
+    const text = message.text;
+    console.log('Message text:', text);
+
+    // Check if turn is complete using comprehensive check
+    const turnComplete = this.isTurnComplete(message);
+    console.log('Turn complete:', turnComplete);
+
+    // Accumulate text chunks
+    if (text && text.trim().length > 0) {
+      this.accumulatedText += text;
+      console.log('Accumulated text so far:', this.accumulatedText);
+
+      // Clear any existing timer
+      if (this.textAccumulationTimer !== null) {
+        clearTimeout(this.textAccumulationTimer);
+      }
+
+      // Set a timer to send accumulated text after 300ms of no new text
+      this.textAccumulationTimer = window.setTimeout(() => {
+        if (this.accumulatedText.trim().length > 0) {
+          console.log('No new text for 300ms - sending accumulated text:', this.accumulatedText);
+          this.onMessage(this.accumulatedText.trim());
+          this.accumulatedText = '';
+          this.textAccumulationTimer = null;
+        }
+      }, 300);
     }
 
-    // Handle server content (text responses)
-    if (response.serverContent) {
-      const parts = response.serverContent.modelTurn?.parts || [];
+    // Send complete message immediately when turn is done
+    if (turnComplete && this.accumulatedText.trim().length > 0) {
+      console.log('Turn complete - sending accumulated text immediately:', this.accumulatedText);
 
-      for (const part of parts) {
-        if (part.text) {
-          this.onMessage(part.text);
-        }
+      // Clear the timer since we're sending now
+      if (this.textAccumulationTimer !== null) {
+        clearTimeout(this.textAccumulationTimer);
+        this.textAccumulationTimer = null;
       }
+
+      this.onMessage(this.accumulatedText.trim());
+      this.accumulatedText = ''; // Reset for next turn
       return;
     }
 
     // Handle tool calls or other message types
-    if (response.toolCall) {
-      console.log('Tool call received:', response.toolCall);
+    if (message.toolCall) {
+      console.log('Tool call received:', message.toolCall);
       return;
     }
 
-    // Log unknown message types for debugging
-    console.log('Unknown server message type:', response);
+    // Log setup complete
+    if (message.setupComplete) {
+      console.log('Setup complete:', message.setupComplete);
+      return;
+    }
+
+    // Log other message types if no text
+    if (!text) {
+      console.log('No text in message, message type:', Object.keys(message));
+    }
+  }
+
+  private isTurnComplete(response: any): boolean {
+    if (response.turnComplete) return true;
+    if (response.serverContent?.event === 'TURN_COMPLETE') return true;
+    if (response.realtimeOutput?.event === 'TURN_COMPLETE') return true;
+    if (response.serverContent?.realtimeOutput?.event === 'TURN_COMPLETE') return true;
+    if (response.serverEvent === 'TURN_COMPLETE') return true;
+    return false;
+  }
+
+  private extractErrorMessage(response: any): string | null {
+    const errorCandidates = [
+      response.error,
+      response.serverError,
+      response.serverContent?.error,
+      response.serverContent?.modelResponse?.error,
+      response.serverContent?.modelResponse?.status?.state === 'ERROR'
+        ? response.serverContent?.modelResponse?.status
+        : null,
+      response.realtimeOutput?.error,
+      response.realtimeOutput?.modelResponse?.error
+    ];
+
+    for (const candidate of errorCandidates) {
+      if (!candidate) continue;
+
+      if (typeof candidate === 'string') {
+        return candidate;
+      }
+
+      const message = candidate.message ?? candidate.details ?? candidate.statusMessage;
+      if (typeof message === 'string' && message.trim().length > 0) {
+        return message.trim();
+      }
+
+      const code = candidate.code ?? candidate.status;
+      if (typeof code === 'string' && code.trim().length > 0) {
+        return `Gemini error (${code.trim()})`;
+      }
+    }
+
+    return null;
+  }
+
+  private isTurnComplete(response: any): boolean {
+    if (response.turnComplete) return true;
+    if (response.serverContent?.event === 'TURN_COMPLETE') return true;
+    if (response.realtimeOutput?.event === 'TURN_COMPLETE') return true;
+    if (response.serverContent?.realtimeOutput?.event === 'TURN_COMPLETE') return true;
+    if (response.serverEvent === 'TURN_COMPLETE') return true;
+    return false;
+  }
+
+  private extractTextsFromResponse(response: any): string[] {
+    const texts: string[] = [];
+
+    const pushText = (value?: string) => {
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed.length > 0) {
+          texts.push(trimmed);
+        }
+      }
+    };
+
+    const collectParts = (parts?: any[]) => {
+      if (!Array.isArray(parts)) return;
+      for (const part of parts) {
+        pushText(part?.text);
+      }
+    };
+
+    collectParts(response.serverContent?.modelTurn?.parts);
+
+    const serverTurns = response.serverContent?.turns;
+    if (Array.isArray(serverTurns)) {
+      serverTurns.forEach((turn: any) => collectParts(turn?.parts));
+    }
+
+    collectParts(response.modelTurn?.parts);
+
+    const candidates = response.candidates;
+    if (Array.isArray(candidates)) {
+      candidates.forEach((candidate: any) => collectParts(candidate?.content?.parts));
+    }
+
+    collectParts(response.content?.parts);
+    collectParts(response.output?.content?.parts);
+    collectParts(response.reply?.parts);
+    collectParts(response.realtimeOutput?.modelTurn?.parts);
+
+    const modelOutputs = response.serverContent?.modelResponse?.output;
+    if (Array.isArray(modelOutputs)) {
+      modelOutputs.forEach((output: any) => collectParts(output?.content?.parts));
+    }
+
+    pushText(response.text);
+    pushText(response.serverContent?.text);
+
+    return texts;
   }
 
   /**
-   * Send a video frame to the API
+   * Send a text prompt to the API using turn-based conversation.
+   */
+  sendPrompt(prompt: { text?: string; frame?: VideoFrame }, turnComplete = true): void {
+    console.log('sendPrompt called with:', prompt, 'turnComplete:', turnComplete);
+
+    if (!this.session) {
+      console.warn('Session not connected, cannot send prompt');
+      return;
+    }
+
+    // If there's a video frame, use sendRealtimeInput instead
+    if (prompt.frame) {
+      this.sendVideoFrame(prompt.frame);
+      // If there's also text, send it separately
+      if (prompt.text) {
+        this.sendTextPrompt(prompt.text, turnComplete);
+      }
+      return;
+    }
+
+    // For text-only prompts, use sendClientContent
+    if (prompt.text) {
+      console.log('Sending text prompt:', prompt.text);
+      this.sendTextPrompt(prompt.text, turnComplete);
+    }
+  }
+
+  /**
+   * Send a text prompt using turn-based conversation
+   */
+  private sendTextPrompt(text: string, turnComplete = true): void {
+    if (!this.session) {
+      console.warn('Session not available in sendTextPrompt');
+      return;
+    }
+
+    const turns = [
+      {
+        role: 'user',
+        parts: [{ text }]
+      }
+    ];
+
+    console.log('Calling sendClientContent with turns:', turns);
+
+    // Use SDK's sendClientContent method with turns
+    this.session.sendClientContent({ turns, turnComplete });
+
+    console.log('sendClientContent called successfully');
+  }
+
+  /**
+   * Send a video frame (image) to the API using realtime input
+   * This sends JPEG frames at ~1 FPS as per Gemini Live API best practices
    */
   sendVideoFrame(frame: VideoFrame): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.warn('WebSocket not connected, cannot send frame');
+    if (!this.session) {
+      console.warn('Session not connected, cannot send video frame');
       return;
     }
 
-    const message = {
-      realtimeInput: {
-        mediaChunks: [
-          {
-            mimeType: frame.mimeType,
-            data: frame.data
-          }
-        ]
-      }
+    console.log('Sending video frame, mimeType:', frame.mimeType, 'data length:', frame.data.length);
+
+    // The SDK expects a Blob object with data (base64) and mimeType properties
+    const blob = {
+      data: frame.data,
+      mimeType: frame.mimeType
     };
 
-    this.ws.send(JSON.stringify(message));
+    // Use SDK's sendRealtimeInput for video frames
+    this.session.sendRealtimeInput({ video: blob });
+    console.log('Video frame sent');
   }
 
   /**
-   * Send a text message (for custom prompts or instructions)
+   * Send a video chunk to the API using realtime input (optimized for streaming)
    */
-  sendText(text: string): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.warn('WebSocket not connected, cannot send text');
+  sendVideoChunk(chunk: VideoChunk): void {
+    console.log('=== SEND VIDEO CHUNK CALLED ===');
+    console.log('Session exists?', !!this.session);
+
+    if (!this.session) {
+      console.warn('Session not connected, cannot send video chunk');
       return;
     }
 
-    const message = {
-      clientContent: {
-        turns: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: text
-              }
-            ]
-          }
-        ],
-        turnComplete: true
-      }
+    // The SDK expects a Blob object with data (base64) and mimeType properties
+    const blob = {
+      data: chunk.data,
+      mimeType: chunk.mimeType
     };
 
-    this.ws.send(JSON.stringify(message));
+    console.log('Sending video chunk, mimeType:', chunk.mimeType, 'data length:', chunk.data.length);
+
+    // Use SDK's sendRealtimeInput for video chunks
+    this.session.sendRealtimeInput({ video: blob });
+
+    console.log('Video chunk sent via sendRealtimeInput');
+  }
+
+  /**
+   * Send PCM audio data to the API using realtime input
+   * Audio must be 16-bit PCM, 16kHz, mono, base64-encoded
+   */
+  sendAudioChunk(audioData: string): void {
+    if (!this.session) {
+      console.warn('Session not connected, cannot send audio chunk');
+      return;
+    }
+
+    console.log('Sending audio chunk, data length:', audioData.length);
+
+    const blob = {
+      data: audioData,
+      mimeType: 'audio/pcm'
+    };
+
+    // Use SDK's sendRealtimeInput for audio
+    this.session.sendRealtimeInput({ audio: blob });
+    console.log('Audio chunk sent');
   }
 
   /**
@@ -224,19 +423,19 @@ export class GeminiLiveSession {
     this.config.systemInstruction = instruction;
 
     // Reconnect to apply new instruction
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (this.session) {
       this.disconnect();
       setTimeout(() => this.connect(), 100);
     }
   }
 
   /**
-   * Disconnect from the WebSocket
+   * Disconnect from the session
    */
   disconnect(): void {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
+    if (this.session) {
+      this.session.close();
+      this.session = null;
     }
   }
 
@@ -244,7 +443,7 @@ export class GeminiLiveSession {
    * Check if the session is connected
    */
   isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
+    return this.session !== null;
   }
 }
 

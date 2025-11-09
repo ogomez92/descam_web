@@ -71,6 +71,11 @@ export interface Translations {
     errorGeneric: string;
     startStreamingAriaLabel: string;
     stopStreamingAriaLabel: string;
+    requestingMicrophone: string;
+    microphoneGranted: string;
+    microphoneDenied: string;
+    initialPrompt: string;
+    systemInstruction: string;
   };
   prompt: {
     label: string;
@@ -88,15 +93,20 @@ export interface Translations {
     legend: string;
     stopTTS: string;
     ttsRate: string;
+    ttsVoice: string;
+    ttsVoiceDefault: string;
   };
   footer: {
     apiKeyFound: string;
     apiKeyNotFound: string;
+    geminiKeyFound: string;
+    geminiKeyNotFound: string;
     cameraAccessGranted: string;
     cameraAccessDenied: string;
     cameraAccessUnknown: string;
     cameraActive: string;
     cameraInactive: string;
+    screenSharingActive: string;
     copyright: string;
   };
 }
@@ -173,6 +183,11 @@ export const translations: Record<Language, Translations> = {
       errorGeneric: 'Failed to start streaming.',
       startStreamingAriaLabel: 'Start streaming video to Gemini',
       stopStreamingAriaLabel: 'Stop streaming video',
+      requestingMicrophone: 'Requesting microphone access...',
+      microphoneGranted: 'Microphone access granted',
+      microphoneDenied: 'Microphone access denied',
+      initialPrompt: 'Please start describing what you see in the video.',
+      systemInstruction: 'Provide short, concise answers, without markdown formatting. Try to focus on what the user is asking.',
     },
     prompt: {
       label: 'Custom Prompt (optional)',
@@ -190,15 +205,20 @@ export const translations: Record<Language, Translations> = {
       legend: 'Outputs',
       stopTTS: 'Stop Speaking',
       ttsRate: 'Speech Rate',
+      ttsVoice: 'Voice',
+      ttsVoiceDefault: 'Default',
     },
     footer: {
       apiKeyFound: 'OpenAI API Key: Configured',
       apiKeyNotFound: 'OpenAI API Key: Not Configured',
+      geminiKeyFound: 'Gemini API Key: Configured',
+      geminiKeyNotFound: 'Gemini API Key: Not Configured',
       cameraAccessGranted: 'Camera: Granted',
       cameraAccessDenied: 'Camera: Denied',
       cameraAccessUnknown: 'Camera: Unknown',
       cameraActive: 'Camera:',
       cameraInactive: 'Camera: Inactive',
+      screenSharingActive: 'Screen sharing active',
       copyright: '© 2025 Oriol Gómez',
     },
   },
@@ -273,6 +293,11 @@ export const translations: Record<Language, Translations> = {
       errorGeneric: 'Error al iniciar la transmisión.',
       startStreamingAriaLabel: 'Iniciar transmisión de video a Gemini',
       stopStreamingAriaLabel: 'Detener transmisión de video',
+      requestingMicrophone: 'Solicitando acceso al micrófono...',
+      microphoneGranted: 'Acceso al micrófono concedido',
+      microphoneDenied: 'Acceso al micrófono denegado',
+      initialPrompt: 'Por favor, comienza a describir lo que ves en el video.',
+      systemInstruction: 'Proporciona respuestas breves y concisas, sin formato markdown. Intenta enfocarte en lo que el usuario está preguntando.',
     },
     prompt: {
       label: 'Instrucción Personalizada (opcional)',
@@ -290,15 +315,20 @@ export const translations: Record<Language, Translations> = {
       legend: 'Salidas',
       stopTTS: 'Detener Lectura',
       ttsRate: 'Velocidad de Voz',
+      ttsVoice: 'Voz',
+      ttsVoiceDefault: 'Predeterminada',
     },
     footer: {
       apiKeyFound: 'Clave API de OpenAI: Configurada',
       apiKeyNotFound: 'Clave API de OpenAI: No Configurada',
+      geminiKeyFound: 'Clave API de Gemini: Configurada',
+      geminiKeyNotFound: 'Clave API de Gemini: No Configurada',
       cameraAccessGranted: 'Cámara: Permitida',
       cameraAccessDenied: 'Cámara: Denegada',
       cameraAccessUnknown: 'Cámara: Desconocido',
       cameraActive: 'Cámara:',
       cameraInactive: 'Cámara: Inactiva',
+      screenSharingActive: 'Compartiendo pantalla',
       copyright: '© 2025 Oriol Gómez',
     },
   },
@@ -373,6 +403,11 @@ export const translations: Record<Language, Translations> = {
       errorGeneric: 'Streaming konnte nicht gestartet werden.',
       startStreamingAriaLabel: 'Video-Streaming zu Gemini starten',
       stopStreamingAriaLabel: 'Video-Streaming stoppen',
+      requestingMicrophone: 'Mikrofon-Zugriff wird angefordert...',
+      microphoneGranted: 'Mikrofon-Zugriff gewährt',
+      microphoneDenied: 'Mikrofon-Zugriff verweigert',
+      initialPrompt: 'Bitte beginnen Sie zu beschreiben, was Sie im Video sehen.',
+      systemInstruction: 'Geben Sie kurze, prägnante Antworten ohne Markdown-Formatierung. Versuchen Sie, sich auf das zu konzentrieren, was der Benutzer fragt.',
     },
     prompt: {
       label: 'Benutzerdefinierte Anweisung (optional)',
@@ -390,15 +425,20 @@ export const translations: Record<Language, Translations> = {
       legend: 'Ausgaben',
       stopTTS: 'Sprechen Stoppen',
       ttsRate: 'Sprechgeschwindigkeit',
+      ttsVoice: 'Stimme',
+      ttsVoiceDefault: 'Standard',
     },
     footer: {
       apiKeyFound: 'OpenAI API-Schlüssel: Konfiguriert',
       apiKeyNotFound: 'OpenAI API-Schlüssel: Nicht Konfiguriert',
+      geminiKeyFound: 'Gemini API-Schlüssel: Konfiguriert',
+      geminiKeyNotFound: 'Gemini API-Schlüssel: Nicht Konfiguriert',
       cameraAccessGranted: 'Kamera: Erlaubt',
       cameraAccessDenied: 'Kamera: Verweigert',
       cameraAccessUnknown: 'Kamera: Unbekannt',
       cameraActive: 'Kamera:',
       cameraInactive: 'Kamera: Inaktiv',
+      screenSharingActive: 'Bildschirmfreigabe aktiv',
       copyright: '© 2025 Oriol Gómez',
     },
   },
@@ -473,6 +513,11 @@ export const translations: Record<Language, Translations> = {
       errorGeneric: 'Échec du démarrage du streaming.',
       startStreamingAriaLabel: 'Démarrer le streaming vidéo vers Gemini',
       stopStreamingAriaLabel: 'Arrêter le streaming vidéo',
+      requestingMicrophone: 'Demande d\'accès au microphone...',
+      microphoneGranted: 'Accès au microphone accordé',
+      microphoneDenied: 'Accès au microphone refusé',
+      initialPrompt: 'Veuillez commencer à décrire ce que vous voyez dans la vidéo.',
+      systemInstruction: 'Fournissez des réponses courtes et concises, sans formatage markdown. Essayez de vous concentrer sur ce que l\'utilisateur demande.',
     },
     prompt: {
       label: 'Instruction Personnalisée (optionnel)',
@@ -490,15 +535,20 @@ export const translations: Record<Language, Translations> = {
       legend: 'Sorties',
       stopTTS: 'Arrêter la Lecture',
       ttsRate: 'Vitesse de Parole',
+      ttsVoice: 'Voix',
+      ttsVoiceDefault: 'Par défaut',
     },
     footer: {
       apiKeyFound: 'Clé API OpenAI : Configurée',
       apiKeyNotFound: 'Clé API OpenAI : Non Configurée',
+      geminiKeyFound: 'Clé API Gemini : Configurée',
+      geminiKeyNotFound: 'Clé API Gemini : Non Configurée',
       cameraAccessGranted: 'Caméra : Accordée',
       cameraAccessDenied: 'Caméra : Refusée',
       cameraAccessUnknown: 'Caméra : Inconnu',
       cameraActive: 'Caméra :',
       cameraInactive: 'Caméra : Inactive',
+      screenSharingActive: 'Partage d\'écran actif',
       copyright: '© 2025 Oriol Gómez',
     },
   },
@@ -573,6 +623,11 @@ export const translations: Record<Language, Translations> = {
       errorGeneric: 'Impossibile avviare lo streaming.',
       startStreamingAriaLabel: 'Avvia streaming video su Gemini',
       stopStreamingAriaLabel: 'Interrompi streaming video',
+      requestingMicrophone: 'Richiesta di accesso al microfono...',
+      microphoneGranted: 'Accesso al microfono concesso',
+      microphoneDenied: 'Accesso al microfono negato',
+      initialPrompt: 'Per favore, inizia a descrivere ciò che vedi nel video.',
+      systemInstruction: 'Fornisci risposte brevi e concise, senza formattazione markdown. Cerca di concentrarti su ciò che l\'utente sta chiedendo.',
     },
     prompt: {
       label: 'Istruzione Personalizzata (opzionale)',
@@ -590,15 +645,20 @@ export const translations: Record<Language, Translations> = {
       legend: 'Uscite',
       stopTTS: 'Ferma Lettura',
       ttsRate: 'Velocità di Voce',
+      ttsVoice: 'Voce',
+      ttsVoiceDefault: 'Predefinita',
     },
     footer: {
       apiKeyFound: 'Chiave API OpenAI: Configurata',
       apiKeyNotFound: 'Chiave API OpenAI: Non Configurata',
+      geminiKeyFound: 'Chiave API Gemini: Configurata',
+      geminiKeyNotFound: 'Chiave API Gemini: Non Configurata',
       cameraAccessGranted: 'Fotocamera: Consentita',
       cameraAccessDenied: 'Fotocamera: Negata',
       cameraAccessUnknown: 'Fotocamera: Sconosciuto',
       cameraActive: 'Fotocamera:',
       cameraInactive: 'Fotocamera: Inattiva',
+      screenSharingActive: 'Condivisione schermo attiva',
       copyright: '© 2025 Oriol Gómez',
     },
   },

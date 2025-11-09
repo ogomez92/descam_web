@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { getCameraStream, stopStream, enumerateCameras, type CameraDevice, getScreenStream } from '../camera';
-  import { GeminiLiveSession, captureVideoFrame } from '../gemini';
-  import { getGeminiApiKey, getOutputMode } from '../storage.svelte';
+  import { getCameraStream, stopStream, enumerateCameras, type CameraDevice, getScreenStream, VideoRecorder } from '../camera';
+  import { GeminiLiveSession, captureVideoFrame, type VideoChunk } from '../gemini';
+  import { getGeminiApiKey, getOutputMode, getTTSRate, getTTSVoice } from '../storage.svelte';
   import { getTranslations, getCurrentLanguage } from '../i18n/store.svelte';
-  import { setCurrentCamera } from '../cameraStore.svelte';
+  import { setCurrentCamera, setScreenSharingActive } from '../cameraStore.svelte';
   import { TextToSpeech, getTTSLanguage } from '../tts';
   import OutputModeSelector from './OutputModeSelector.svelte';
+  import CameraSourceDropdown, { type CameraSourceOption } from './CameraSourceDropdown.svelte';
 
   let t = $derived(getTranslations());
   let videoElement = $state<HTMLVideoElement>();
@@ -19,32 +20,37 @@
   let isStreaming = $state(false);
   let isCameraReady = $state(false);
   let availableCameras = $state<CameraDevice[]>([]);
-  let selectedCameraIndex = $state(0);
-  let cameraTabRefs = $state<(HTMLButtonElement | undefined)[]>([]);
+  let selectedSourceId = $state<string>('');
+  let cameraOptions = $derived.by(() => {
+    const options: CameraSourceOption[] = availableCameras.map(camera => ({
+      id: camera.deviceId,
+      label: camera.label,
+      type: 'camera',
+    }));
+
+    options.push({
+      id: 'screen-share',
+      label: t.camera.screenShare,
+      type: 'screen',
+    });
+
+    return options;
+  });
   let currentDescription = $state('');
   let connectionStatus = $state<'connecting' | 'connected' | 'disconnected'>('disconnected');
   let videoSourceType = $state<'camera' | 'screen'>('camera');
+  let outputMode = $derived(getOutputMode());
 
   let geminiSession: GeminiLiveSession | null = null;
   let frameIntervalId: number | null = null;
-  let tts: TextToSpeech | null = null;
+  let videoRecorder: VideoRecorder | null = null;
+  let tts = $state<TextToSpeech | null>(null);
+  let userPromptInput = $state('');
 
   // Update prompt when language changes
-  $effect(() => {
-    const currentDefault = t.prompt.defaultPrompt;
-
-    if (!customPrompt || customPrompt === previousDefaultPrompt) {
-      customPrompt = currentDefault;
-    }
-
-    previousDefaultPrompt = currentDefault;
-  });
-
-  // Handle TTS output when description changes
-  $effect(() => {
-    if (currentDescription) {
-      handleDescriptionOutput(currentDescription);
-    }
+  onMount(() => {
+    customPrompt = t.prompt.defaultPrompt;
+    previousDefaultPrompt = t.prompt.defaultPrompt;
   });
 
   function handleDescriptionOutput(description: string) {
@@ -54,7 +60,9 @@
         tts = new TextToSpeech();
       }
       const lang = getTTSLanguage(getCurrentLanguage());
-      tts.speak(description, { lang });
+      const rate = getTTSRate();
+      const voiceURI = getTTSVoice();
+      tts.speak(description, { lang, rate, voiceURI: voiceURI || undefined });
     }
   }
 
@@ -71,10 +79,17 @@
         isCameraReady = true;
         errorMessage = '';
 
-        const currentCamera = availableCameras.find(cam => cam.deviceId === deviceId) || availableCameras[selectedCameraIndex];
+        const currentCamera = availableCameras.find(cam => cam.deviceId === deviceId) || availableCameras[0];
         if (currentCamera) {
           setCurrentCamera(currentCamera);
+          if (deviceId) {
+            selectedSourceId = deviceId;
+          } else {
+            selectedSourceId = currentCamera.deviceId;
+          }
         }
+        videoSourceType = 'camera';
+        setScreenSharingActive(false);
       }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : t.camera.errorGeneric;
@@ -90,28 +105,25 @@
       }
       isCameraReady = false;
       setCurrentCamera(null);
+      setScreenSharingActive(false);
     }
   }
 
-  async function switchCamera(index: number) {
-    if (index < 0 || index >= availableCameras.length) return;
+  async function handleSourceSelect(sourceId: string) {
+    selectedSourceId = sourceId;
 
-    selectedCameraIndex = index;
-    const camera = availableCameras[index];
-    await startCamera(camera.deviceId);
-
-    if (cameraTabRefs[index]) {
-      cameraTabRefs[index]?.focus();
+    if (sourceId === 'screen-share') {
+      await startScreenShare();
+      return;
     }
-  }
 
-  function handleCameraTabKeydown(event: KeyboardEvent, index: number) {
-    if (event.key === 'ArrowLeft' && index > 0) {
-      event.preventDefault();
-      switchCamera(index - 1);
-    } else if (event.key === 'ArrowRight' && index < availableCameras.length - 1) {
-      event.preventDefault();
-      switchCamera(index + 1);
+    if (videoSourceType === 'screen') {
+      stopScreenShare({ resumeDefaultCamera: false });
+    }
+
+    const camera = availableCameras.find(cam => cam.deviceId === sourceId);
+    if (camera) {
+      await startCamera(camera.deviceId);
     }
   }
 
@@ -129,7 +141,9 @@
         isCameraReady = true;
         videoSourceType = 'screen';
         errorMessage = '';
+        selectedSourceId = 'screen-share';
         setCurrentCamera(null); // Screen share doesn't use camera
+        setScreenSharingActive(true);
 
         // Handle when user stops sharing via browser UI
         const videoTrack = stream.getVideoTracks()[0];
@@ -142,17 +156,31 @@
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : t.camera.errorScreenCapture;
       isCameraReady = false;
+      setScreenSharingActive(false);
     }
   }
 
-  function stopScreenShare() {
-    if (stream) {
+  function stopScreenShare(options?: { resumeDefaultCamera?: boolean }) {
+    const resumeDefaultCamera = options?.resumeDefaultCamera ?? true;
+
+    if (videoSourceType === 'screen' && stream) {
       stopStream(stream);
       stream = null;
     }
+
+    if (videoSourceType === 'screen') {
+      videoSourceType = 'camera';
+    }
+
     isCameraReady = false;
-    videoSourceType = 'camera';
+    setScreenSharingActive(false);
     errorMessage = '';
+
+    if (resumeDefaultCamera && availableCameras.length > 0) {
+      const fallbackId = availableCameras[0].deviceId;
+      selectedSourceId = fallbackId;
+      startCamera(fallbackId);
+    }
   }
 
   async function startStreaming() {
@@ -163,7 +191,7 @@
       return;
     }
 
-    if (!videoElement || !isCameraReady) {
+    if (!videoElement || !isCameraReady || !stream) {
       errorMessage = t.camera.errorNotReady;
       return;
     }
@@ -176,11 +204,12 @@
       geminiSession = new GeminiLiveSession(
         {
           apiKey,
-          systemInstruction: customPrompt || t.prompt.defaultPrompt
+          systemInstruction: t.video.systemInstruction
         },
         (description) => {
           // Update with latest description
           currentDescription = description;
+          handleDescriptionOutput(description);
           statusMessage = '';
         },
         (error) => {
@@ -191,7 +220,10 @@
           connectionStatus = status;
           if (status === 'connected') {
             statusMessage = t.video.streaming || 'Streaming video...';
-            startSendingFrames();
+            // Use a small delay to ensure everything is ready
+            setTimeout(() => {
+              startVideoRecording();
+            }, 100);
           } else if (status === 'connecting') {
             statusMessage = t.video.connecting || 'Connecting...';
           } else {
@@ -209,16 +241,98 @@
     }
   }
 
-  function startSendingFrames() {
-    // Send frames at 1 FPS (Gemini's recommended rate)
-    frameIntervalId = window.setInterval(() => {
-      if (videoElement && geminiSession?.isConnected()) {
-        const frame = captureVideoFrame(videoElement);
-        if (frame) {
-          geminiSession.sendVideoFrame(frame);
-        }
+  function startVideoRecording() {
+    console.log('startVideoRecording called');
+    console.log('stream exists:', !!stream);
+    console.log('geminiSession exists:', !!geminiSession);
+    console.log('geminiSession.isConnected():', geminiSession?.isConnected());
+
+    if (!stream) {
+      console.error('Cannot start video recording: missing stream');
+      return;
+    }
+
+    if (!geminiSession) {
+      console.error('Cannot start video recording: missing session');
+      return;
+    }
+
+    if (!videoElement) {
+      console.error('Cannot start video recording: missing video element');
+      return;
+    }
+
+    // Start sending frames at 1 FPS (like the Python script)
+    const sendFrame = () => {
+      console.log('sendFrame called');
+      if (!videoElement || !geminiSession?.isConnected()) {
+        console.log('Cannot send frame - videoElement:', !!videoElement, 'session connected:', geminiSession?.isConnected());
+        return;
       }
-    }, 1000); // 1 second = 1 FPS
+
+      const frame = captureVideoFrame(videoElement);
+      if (!frame) {
+        console.log('Failed to capture frame');
+        return;
+      }
+
+      console.log('Frame captured, sending to Gemini');
+      // Send the frame - the model will respond based on system instruction
+      geminiSession.sendVideoFrame(frame);
+    };
+
+    // Send initial frame
+    console.log('Starting frame sending...');
+    sendFrame();
+    // Send frames at 1 FPS
+    frameIntervalId = window.setInterval(sendFrame, 1000);
+    console.log('Frame interval started');
+
+    // Send initial prompt to trigger the model to start describing
+    setTimeout(() => {
+      if (geminiSession?.isConnected()) {
+        console.log('Sending initial prompt to trigger description');
+        geminiSession.sendPrompt({ text: t.video.initialPrompt }, true);
+      }
+    }, 1500);
+
+    // Start PCM audio generation and sending
+    // In video mode, use microphone; otherwise use silent audio
+    videoRecorder = new VideoRecorder(
+      stream,
+      () => {}, // No video chunk callback needed
+      1000,
+      (audioData: string) => {
+        // Audio callback for PCM audio chunks
+        if (!geminiSession?.isConnected()) {
+          return;
+        }
+
+        // Send PCM audio to Gemini
+        geminiSession.sendAudioChunk(audioData);
+      },
+      true // Use microphone in video mode
+    );
+
+    // Start audio generation (async because it requests microphone permission)
+    statusMessage = t.video.requestingMicrophone || 'Requesting microphone access...';
+    videoRecorder.start().then(() => {
+      console.log('Audio capture started (microphone)');
+      statusMessage = t.video.microphoneGranted || 'Microphone access granted';
+      // Clear the status message after a delay
+      setTimeout(() => {
+        if (statusMessage === (t.video.microphoneGranted || 'Microphone access granted')) {
+          statusMessage = t.video.streaming || 'Streaming video...';
+        }
+      }, 2000);
+    }).catch((error) => {
+      console.error('Failed to start audio capture:', error);
+      const micError = error instanceof Error ? error.message : 'Failed to start audio capture';
+      errorMessage = `${t.video.microphoneDenied || 'Microphone access denied'}: ${micError}`;
+      statusMessage = '';
+      // If microphone fails, try to continue without it
+      // The session might still work or fail gracefully
+    });
   }
 
   function stopStreaming() {
@@ -227,6 +341,12 @@
     if (frameIntervalId !== null) {
       clearInterval(frameIntervalId);
       frameIntervalId = null;
+    }
+
+    if (videoRecorder) {
+      videoRecorder.stop();
+      videoRecorder = null;
+      console.log('Video recorder stopped');
     }
 
     if (geminiSession) {
@@ -245,6 +365,23 @@
     // Update system instruction if streaming
     if (geminiSession?.isConnected()) {
       geminiSession.updateSystemInstruction(customPrompt);
+    }
+  }
+
+  function sendUserPrompt() {
+    if (!userPromptInput.trim() || !geminiSession?.isConnected()) {
+      return;
+    }
+
+    // Send the text as realtimeInput
+    geminiSession.sendPrompt({ text: userPromptInput });
+    userPromptInput = '';
+  }
+
+  function handlePromptKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendUserPrompt();
     }
   }
 
@@ -276,6 +413,7 @@
       stopStream(stream);
       setCurrentCamera(null);
     }
+    setScreenSharingActive(false);
 
     // Cleanup TTS
     if (tts) {
@@ -286,6 +424,11 @@
 </script>
 
 <div class="video-capture">
+  {#if outputMode === 'aria'}
+    <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+      {currentDescription}
+    </div>
+  {/if}
   <div class="video-container">
     <video bind:this={videoElement} autoplay playsinline muted aria-label={t.camera.videoFeedAriaLabel}></video>
 
@@ -294,27 +437,20 @@
         <p>{t.camera.initializing}</p>
       </div>
     {/if}
-  </div>
 
-  {#if availableCameras.length > 1}
-    <div class="camera-tabs" role="tablist" aria-label={t.camera.cameraSelectionAriaLabel}>
-      {#each availableCameras as camera, index}
-        <button
-          bind:this={cameraTabRefs[index]}
-          role="tab"
-          aria-selected={index === selectedCameraIndex}
-          aria-label={`${t.camera.camera} ${index + 1}: ${camera.label}`}
-          tabindex={index === selectedCameraIndex ? 0 : -1}
-          class="camera-tab"
-          class:active={index === selectedCameraIndex}
-          onclick={() => switchCamera(index)}
-          onkeydown={(e) => handleCameraTabKeydown(e, index)}
-        >
-          {t.camera.camera} {index + 1}
-        </button>
-      {/each}
-    </div>
-  {/if}
+    {#if cameraOptions.length > 0}
+      <div class="source-selector">
+        <CameraSourceDropdown
+          options={cameraOptions}
+          selectedId={selectedSourceId}
+          ariaLabel={t.camera.cameraSelectionAriaLabel}
+          placeholder={t.camera.cameraSelectionAriaLabel}
+          onSelect={handleSourceSelect}
+          disabled={isStreaming}
+        />
+      </div>
+    {/if}
+  </div>
 
   {#if statusMessage}
     <div class="status-message" role="alert" aria-live="polite">
@@ -328,50 +464,33 @@
     </div>
   {/if}
 
-  <OutputModeSelector />
+  <OutputModeSelector {tts} />
 
   <div class="controls">
-    <div class="prompt-section">
-      <label for="video-prompt-input">{t.prompt.customPromptLabel}</label>
-      <textarea
-        id="video-prompt-input"
-        bind:this={promptTextarea}
-        bind:value={customPrompt}
-        placeholder={t.prompt.customPromptPlaceholder}
-        disabled={isStreaming}
-        rows="3"
-      ></textarea>
-      <button
-        class="reset-button"
-        onclick={handleResetPrompt}
-        disabled={isStreaming}
-        aria-label={t.prompt.resetButtonAriaLabel}
-      >
-        {t.prompt.resetButton}
-      </button>
-    </div>
+    {#if isStreaming}
+      <div class="user-prompt-section">
+        <label for="user-prompt-input">Send a message</label>
+        <div class="input-with-button">
+          <input
+            id="user-prompt-input"
+            type="text"
+            bind:value={userPromptInput}
+            onkeydown={handlePromptKeydown}
+            placeholder="Type a message and press Enter..."
+          />
+          <button
+            class="send-button"
+            onclick={sendUserPrompt}
+            disabled={!userPromptInput.trim()}
+            aria-label="Send message"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    {/if}
 
     <div class="action-buttons">
-      {#if videoSourceType === 'camera'}
-        <button
-          class="screen-share-button"
-          onclick={startScreenShare}
-          disabled={isStreaming}
-          aria-label={t.camera.shareScreen}
-        >
-          {t.camera.shareScreen}
-        </button>
-      {:else}
-        <button
-          class="stop-share-button"
-          onclick={stopScreenShare}
-          disabled={isStreaming}
-          aria-label={t.camera.stopSharing}
-        >
-          {t.camera.stopSharing}
-        </button>
-      {/if}
-
       {#if !isStreaming}
         <button
           class="capture-button"
@@ -396,7 +515,7 @@
   {#if currentDescription}
     <div class="description-section">
       <h2>{t.video.currentDescription || 'Current Description'}</h2>
-      <div class="description-content" role="region" aria-live="polite">
+      <div class="description-content" role="region" aria-live={outputMode === 'aria' ? 'polite' : 'off'}>
         {currentDescription}
       </div>
     </div>
@@ -439,36 +558,24 @@
     color: white;
   }
 
-  .camera-tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
+  .source-selector {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 0.5rem;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+    z-index: 3;
   }
 
-  .camera-tab {
-    padding: 0.5rem 1rem;
-    background: #f0f0f0;
-    border: 2px solid #ccc;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.2s;
+  .source-selector :global(.source-button) {
+    background: rgba(247, 250, 252, 0.95);
   }
 
-  .camera-tab:hover {
-    background: #e0e0e0;
-  }
-
-  .camera-tab.active {
-    background: #007bff;
-    color: white;
-    border-color: #0056b3;
-  }
-
-  .camera-tab:focus {
-    outline: 3px solid #0056b3;
-    outline-offset: 2px;
+  .source-selector :global(.dropdown-panel) {
+    left: auto;
+    right: 0;
   }
 
   .status-message {
@@ -544,55 +651,65 @@
     cursor: not-allowed;
   }
 
-  .action-buttons {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
+  .user-prompt-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
-  .screen-share-button,
-  .stop-share-button {
-    padding: 1rem 2rem;
-    font-size: 1.1rem;
+  .user-prompt-section label {
     font-weight: 600;
+  }
+
+  .input-with-button {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .input-with-button input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 2px solid #ccc;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 1rem;
+  }
+
+  .input-with-button input:focus {
+    outline: 3px solid #0056b3;
+    outline-offset: 2px;
+    border-color: #0056b3;
+  }
+
+  .send-button {
+    padding: 0.75rem 1.5rem;
+    background: #007bff;
+    color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s;
+    font-size: 1rem;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
-  .screen-share-button {
-    background: #17a2b8;
-    color: white;
+  .send-button:hover:not(:disabled) {
+    background: #0056b3;
   }
 
-  .screen-share-button:hover:not(:disabled) {
-    background: #138496;
-  }
-
-  .screen-share-button:disabled {
-    background: #ccc;
+  .send-button:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
   }
 
-  .stop-share-button {
-    background: #fd7e14;
-    color: white;
-  }
-
-  .stop-share-button:hover:not(:disabled) {
-    background: #e8590c;
-  }
-
-  .stop-share-button:disabled {
-    background: #ccc;
-    cursor: not-allowed;
+  .action-buttons {
+    display: flex;
+    justify-content: flex-start;
   }
 
   .capture-button,
   .stop-button {
-    flex: 1;
-    min-width: 200px;
+    min-width: 220px;
     padding: 1rem 2rem;
     font-size: 1.1rem;
     font-weight: 600;
@@ -652,20 +769,31 @@
     min-height: 100px;
   }
 
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
   @media (max-width: 768px) {
-    .camera-tab {
-      font-size: 0.8rem;
-      padding: 0.4rem 0.8rem;
+    .source-selector {
+      top: 0.75rem;
+      right: 0.75rem;
+      padding: 0.35rem;
     }
 
     .action-buttons {
-      grid-template-columns: 1fr;
+      width: 100%;
     }
 
     .capture-button,
-    .stop-button,
-    .screen-share-button,
-    .stop-share-button {
+    .stop-button {
       min-width: unset;
       width: 100%;
     }
