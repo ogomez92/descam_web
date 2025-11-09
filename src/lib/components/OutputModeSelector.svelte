@@ -21,19 +21,32 @@
   import { onMount, onDestroy } from 'svelte';
 
   let checkSpeakingInterval: number | null = null;
+  let voicesChangedHandler: (() => void) | null = null;
 
   onMount(() => {
     if (ttsSupported && typeof window !== 'undefined' && window.speechSynthesis) {
-      // Load voices
+      // Load voices initially
       availableVoices = window.speechSynthesis.getVoices();
 
-      // Listen for async voice loading
-      if (availableVoices.length === 0) {
-        const voicesChangedHandler = () => {
-          availableVoices = window.speechSynthesis.getVoices();
-        };
-        window.speechSynthesis.addEventListener('voiceschanged', voicesChangedHandler);
-      }
+      // Always listen for async voice loading (don't poll)
+      voicesChangedHandler = () => {
+        availableVoices = window.speechSynthesis.getVoices();
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', voicesChangedHandler);
+    }
+  });
+
+  onDestroy(() => {
+    // Clean up voices event listener
+    if (voicesChangedHandler && typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.removeEventListener('voiceschanged', voicesChangedHandler);
+      voicesChangedHandler = null;
+    }
+
+    // Clean up speaking interval
+    if (checkSpeakingInterval) {
+      clearInterval(checkSpeakingInterval);
+      checkSpeakingInterval = null;
     }
   });
 
