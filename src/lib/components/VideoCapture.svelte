@@ -45,7 +45,6 @@
   let frameIntervalId: number | null = null;
   let videoRecorder: VideoRecorder | null = null;
   let tts = $state<TextToSpeech | null>(null);
-  let userPromptInput = $state('');
 
   // Update prompt when language changes
   onMount(() => {
@@ -368,23 +367,6 @@
     }
   }
 
-  function sendUserPrompt() {
-    if (!userPromptInput.trim() || !geminiSession?.isConnected()) {
-      return;
-    }
-
-    // Send the text as realtimeInput
-    geminiSession.sendPrompt({ text: userPromptInput });
-    userPromptInput = '';
-  }
-
-  function handlePromptKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      sendUserPrompt();
-    }
-  }
-
   onMount(async () => {
     try {
       // Request camera permission first
@@ -467,29 +449,6 @@
   <OutputModeSelector {tts} />
 
   <div class="controls">
-    {#if isStreaming}
-      <div class="user-prompt-section">
-        <label for="user-prompt-input">Send a message</label>
-        <div class="input-with-button">
-          <input
-            id="user-prompt-input"
-            type="text"
-            bind:value={userPromptInput}
-            onkeydown={handlePromptKeydown}
-            placeholder="Type a message and press Enter..."
-          />
-          <button
-            class="send-button"
-            onclick={sendUserPrompt}
-            disabled={!userPromptInput.trim()}
-            aria-label="Send message"
-          >
-            Send
-          </button>
-        </div>
-      </div>
-    {/if}
-
     <div class="action-buttons">
       {#if !isStreaming}
         <button
@@ -598,108 +557,6 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-  }
-
-  .prompt-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .prompt-section label {
-    font-weight: 600;
-  }
-
-  textarea {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px solid #ccc;
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 1rem;
-    resize: vertical;
-  }
-
-  textarea:focus {
-    outline: 3px solid #0056b3;
-    outline-offset: 2px;
-    border-color: #0056b3;
-  }
-
-  textarea:disabled {
-    background: #f5f5f5;
-    cursor: not-allowed;
-  }
-
-  .reset-button {
-    align-self: flex-start;
-    padding: 0.5rem 1rem;
-    background: #6c757d;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-
-  .reset-button:hover:not(:disabled) {
-    background: #5a6268;
-  }
-
-  .reset-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .user-prompt-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .user-prompt-section label {
-    font-weight: 600;
-  }
-
-  .input-with-button {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .input-with-button input {
-    flex: 1;
-    padding: 0.75rem;
-    border: 2px solid #ccc;
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 1rem;
-  }
-
-  .input-with-button input:focus {
-    outline: 3px solid #0056b3;
-    outline-offset: 2px;
-    border-color: #0056b3;
-  }
-
-  .send-button {
-    padding: 0.75rem 1.5rem;
-    background: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1rem;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .send-button:hover:not(:disabled) {
-    background: #0056b3;
-  }
-
-  .send-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   .action-buttons {

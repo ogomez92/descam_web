@@ -186,7 +186,7 @@ export const translations: Record<Language, Translations> = {
       requestingMicrophone: 'Requesting microphone access...',
       microphoneGranted: 'Microphone access granted',
       microphoneDenied: 'Microphone access denied',
-      initialPrompt: 'Please start describing what you see in the video.',
+      initialPrompt: '',
       systemInstruction: 'Provide short, concise answers, without markdown formatting. Try to focus on what the user is asking.',
     },
     prompt: {
@@ -296,7 +296,7 @@ export const translations: Record<Language, Translations> = {
       requestingMicrophone: 'Solicitando acceso al micrófono...',
       microphoneGranted: 'Acceso al micrófono concedido',
       microphoneDenied: 'Acceso al micrófono denegado',
-      initialPrompt: 'Por favor, comienza a describir lo que ves en el video.',
+      initialPrompt: '',
       systemInstruction: 'Proporciona respuestas breves y concisas, sin formato markdown. Intenta enfocarte en lo que el usuario está preguntando.',
     },
     prompt: {
@@ -406,7 +406,7 @@ export const translations: Record<Language, Translations> = {
       requestingMicrophone: 'Mikrofon-Zugriff wird angefordert...',
       microphoneGranted: 'Mikrofon-Zugriff gewährt',
       microphoneDenied: 'Mikrofon-Zugriff verweigert',
-      initialPrompt: 'Bitte beginnen Sie zu beschreiben, was Sie im Video sehen.',
+      initialPrompt: '',
       systemInstruction: 'Geben Sie kurze, prägnante Antworten ohne Markdown-Formatierung. Versuchen Sie, sich auf das zu konzentrieren, was der Benutzer fragt.',
     },
     prompt: {
@@ -516,7 +516,7 @@ export const translations: Record<Language, Translations> = {
       requestingMicrophone: 'Demande d\'accès au microphone...',
       microphoneGranted: 'Accès au microphone accordé',
       microphoneDenied: 'Accès au microphone refusé',
-      initialPrompt: 'Veuillez commencer à décrire ce que vous voyez dans la vidéo.',
+      initialPrompt: '',
       systemInstruction: 'Fournissez des réponses courtes et concises, sans formatage markdown. Essayez de vous concentrer sur ce que l\'utilisateur demande.',
     },
     prompt: {
@@ -626,7 +626,7 @@ export const translations: Record<Language, Translations> = {
       requestingMicrophone: 'Richiesta di accesso al microfono...',
       microphoneGranted: 'Accesso al microfono concesso',
       microphoneDenied: 'Accesso al microfono negato',
-      initialPrompt: 'Per favore, inizia a descrivere ciò che vedi nel video.',
+      initialPrompt: '',
       systemInstruction: 'Fornisci risposte brevi e concise, senza formattazione markdown. Cerca di concentrarti su ciò che l\'utente sta chiedendo.',
     },
     prompt: {
